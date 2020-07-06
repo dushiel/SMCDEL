@@ -6,6 +6,7 @@ import Data.List
 
 import SMCDEL.Language
 import SMCDEL.Examples.MuddyChildren
+import System.IO.Unsafe
 import SMCDEL.Internal.Help (apply)
 import qualified SMCDEL.Explicit.DEMO_S5 as DEMO_S5
 import qualified SMCDEL.Explicit.S5
@@ -94,7 +95,8 @@ findNumberTriangleLoop count curMod =
     else count
 
 main :: IO ()
-main = defaultMain (map mybench
+main = 
+    defaultMain (map mybench
   [ ("Triangle"  , findNumberTriangle  , [7..40] )
   , ("CacBDD"    , findNumberCacBDD    , [3..40] )
   , ("CUDD"      , findNumberCUDD      , [3..40] )

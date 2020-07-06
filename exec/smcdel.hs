@@ -17,9 +17,11 @@ import SMCDEL.Internal.Parse
 import SMCDEL.Internal.TexDisplay
 import SMCDEL.Language
 import SMCDEL.Symbolic.S5
+import qualified SMCDEL.Symbolic.S5_CUDD
 
 main :: IO ()
 main = do
+  putStrLn "Hello, World!"
   (input,options) <- getInputAndSettings
   let showMode = "-show" `elem` options
   let texMode = "-tex" `elem` options || showMode
@@ -31,7 +33,11 @@ main = do
   case parse $ alexScanTokens input of
     Left (lin,col) -> error ("Parse error in line " ++ show lin ++ ", column " ++ show col)
     Right (CheckInput vocabInts lawform obs jobs) -> do
+      let cuddmykns = SMCDEL.Symbolic.S5_CUDD.KnS (map P vocabInts) (SMCDEL.Symbolic.S5_CUDD.boolBddOf lawform) (map (second (map P)) obs)
       let mykns = KnS (map P vocabInts) (boolBddOf lawform) (map (second (map P)) obs)
+      let bdd = SMCDEL.Symbolic.S5_CUDD.bddOf cuddmykns lawform
+      myknsZ <- SMCDEL.Symbolic.S5_CUDD.zddtest bdd
+      
       when texMode $
         hPutStrLn outHandle $ unlines
           [ "\\section{Given Knowledge Structure}", "\\[ (\\mathcal{F},s) = (" ++ tex ((mykns,[])::KnowScene) ++ ") \\]", "\\section{Results}" ]

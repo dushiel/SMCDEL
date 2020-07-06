@@ -1,6 +1,6 @@
 module SMCDEL.Internal.MyHaskCUDD (
   -- * Types
-  Bdd,
+  Bdd, Zdd,
   -- * Creation of new BDDs
   top, bot, var,
   -- * Combination and Manipulation of BDDs
@@ -8,7 +8,9 @@ module SMCDEL.Internal.MyHaskCUDD (
   exists, forall, forallSet, existsSet,
   restrict, restrictSet,
   ifthenelse,
-  gfp
+  gfp,
+  -- * Zdd functionalities
+  topZ, varZ, createZddFromBdd
 ) where
 
 import qualified Cudd.Cudd
@@ -89,3 +91,27 @@ restrict b (n,bit) = Cudd.Cudd.cuddBddLICompaction manager b res where
 restrictSet :: Bdd -> [(Int,Bool)] -> Bdd
 restrictSet b bits = Cudd.Cudd.cuddBddLICompaction manager b res where
   res = conSet $ map (\(n,bit) -> if bit then var n else neg (var n)) bits
+
+--Zdd stuff
+
+type Zdd = Cudd.Cudd.DdNode
+
+topZ :: Zdd
+topZ = Cudd.Cudd.cuddZddReadOne manager
+
+varZ :: Int -> Zdd
+varZ = Cudd.Cudd.cuddZddIthVar manager
+
+
+createZddFromBdd :: Bdd -> IO(Zdd)
+createZddFromBdd bdd = do 
+    putStrLn "Hello, bdd!"
+    Cudd.Cudd.cuddPrintDdInfo manager bdd
+    Cudd.Cudd.cuddZddVarsFromBddVars manager 1
+    let zdd = Cudd.Cudd.cuddZddPortFromBdd manager bdd
+    putStrLn "Hello, zdd!"
+    Cudd.Cudd.cuddPrintDdInfo manager zdd  
+    return zdd 
+    --Cudd.Cudd.returnZdd manager
+
+

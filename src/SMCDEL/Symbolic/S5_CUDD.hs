@@ -94,3 +94,6 @@ instance Semantics KnowScene where
 
 validViaBdd :: KnowStruct -> Form -> Bool
 validViaBdd kns@(KnS _ lawbdd _) f = top == lawbdd `imp` bddOf kns f
+
+zddtest :: Bdd -> IO(Zdd)
+zddtest b = createZddFromBdd b
