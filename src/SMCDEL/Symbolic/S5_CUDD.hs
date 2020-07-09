@@ -6,6 +6,7 @@ import SMCDEL.Internal.MyHaskCUDD
 import Data.List ((\\))
 import SMCDEL.Internal.Help (apply)
 import SMCDEL.Language
+import System.IO.Unsafe
 
 boolBddOf :: Form -> Bdd
 boolBddOf Top           = top
@@ -22,7 +23,7 @@ boolBddOf (Exists ps f) = boolBddOf (foldl singleExists f ps) where
   singleExists g p = Disj [ substit p Top g, substit p Bot g ]
 boolBddOf _             = error "boolBddOf failed: Not a boolean formula."
 
-data KnowStruct = KnS [Prp] Bdd [(Agent,[Prp])] deriving (Eq,Show)
+data KnowStruct = KnS [Prp] Bdd [(Agent,[Prp])] | KnSZ [Prp] Zdd [(Agent,[Prp])] deriving (Eq,Show)
 type KnState = [Prp]
 type KnowScene = (KnowStruct,KnState)
 
@@ -94,6 +95,14 @@ instance Semantics KnowScene where
 
 validViaBdd :: KnowStruct -> Form -> Bool
 validViaBdd kns@(KnS _ lawbdd _) f = top == lawbdd `imp` bddOf kns f
+
+-- ZDD stuff (also see data type declarations above)
+--validViaZdd :: KnowStructZ -> Form -> Bool
+--validViaZdd kns@(KnS _ lawzdd _) f = top == lawzdd `imp` ZddOf kns f
+
+validViaZddTest :: KnowStruct -> Form -> Bool
+validViaZddTest kns@(KnS _ lawzdd _) f = topZ == lawzdd `differenceZ` transformedZdd where 
+  transformedZdd = unsafePerformIO $ zddtest $ bddOf kns f
 
 zddtest :: Bdd -> IO(Zdd)
 zddtest b = createZddFromBdd b

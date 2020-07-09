@@ -10,10 +10,11 @@ module SMCDEL.Internal.MyHaskCUDD (
   ifthenelse,
   gfp,
   -- * Zdd functionalities
-  topZ, varZ, createZddFromBdd
+  topZ, varZ, createZddFromBdd, differenceZ, intersectionZ
 ) where
 
 import qualified Cudd.Cudd
+
 
 type Bdd = Cudd.Cudd.DdNode
 
@@ -100,8 +101,7 @@ topZ :: Zdd
 topZ = Cudd.Cudd.cuddZddReadOne manager
 
 varZ :: Int -> Zdd
-varZ = Cudd.Cudd.cuddZddIthVar manager
-
+varZ i = Cudd.Cudd.cuddZddIthVar manager i
 
 createZddFromBdd :: Bdd -> IO(Zdd)
 createZddFromBdd bdd = do 
@@ -112,6 +112,16 @@ createZddFromBdd bdd = do
     putStrLn "Hello, zdd!"
     Cudd.Cudd.cuddPrintDdInfo manager zdd  
     return zdd 
-    --Cudd.Cudd.returnZdd manager
+
+
+ifthenelseZ :: Zdd -> Zdd -> Zdd -> Zdd
+ifthenelseZ = Cudd.Cudd.cuddZddITE manager
+
+differenceZ :: Zdd -> Zdd -> Zdd
+differenceZ = Cudd.Cudd.cuddZddDiff manager
+
+intersectionZ :: Zdd -> Zdd -> Zdd
+intersectionZ = Cudd.Cudd.cuddZddIntersect manager
+
 
 
