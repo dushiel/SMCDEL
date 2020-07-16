@@ -94,15 +94,21 @@ instance Semantics KnowScene where
   isTrue = evalViaBdd
 
 validViaBdd :: KnowStruct -> Form -> Bool
-validViaBdd kns@(KnS _ lawbdd _) f = top == lawbdd `imp` bddOf kns f
+validViaBdd kns@(KnS _ lawbdd _) f = top == lawbdd `imp` print where
+  print = unsafePerformIO $ do 
+    let p = bddOf kns f
+    printBddInfo p
+    return p
 
 -- ZDD stuff (also see data type declarations above)
 --validViaZdd :: KnowStructZ -> Form -> Bool
 --validViaZdd kns@(KnS _ lawzdd _) f = top == lawzdd `imp` ZddOf kns f
 
 validViaZddTest :: KnowStruct -> Form -> Bool
-validViaZddTest kns@(KnS _ lawzdd _) f = topZ == lawzdd `differenceZ` transformedZdd where 
+validViaZddTest kns@(KnS _ lawbdd _)  f = topZ == lawzdd `differenceZ` transformedZdd where 
   transformedZdd = unsafePerformIO $ zddtest $ bddOf kns f
+  lawzdd = unsafePerformIO $ zddtest $ lawbdd
+
 
 zddtest :: Bdd -> IO(Zdd)
 zddtest b = createZddFromBdd b
