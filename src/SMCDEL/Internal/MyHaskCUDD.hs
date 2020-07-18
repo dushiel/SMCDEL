@@ -14,6 +14,7 @@ module SMCDEL.Internal.MyHaskCUDD (
 ) where
 
 import qualified Cudd.Cudd
+import System.IO.Unsafe
 
 
 type Bdd =  Cudd.Cudd.DdNode
@@ -103,20 +104,22 @@ topZ = ToZdd (Cudd.Cudd.cuddZddReadOne manager)
 varZ :: Int -> Zdd
 varZ i = ToZdd (Cudd.Cudd.cuddZddIthVar manager i)
 
-createZddFromBdd :: Bdd -> IO(Zdd)
-createZddFromBdd bdd = do 
-    printBddInfo bdd
-    Cudd.Cudd.cuddZddVarsFromBddVars manager 1
-    let zdd = ToZdd (Cudd.Cudd.cuddZddPortFromBdd manager bdd)
-    printZddInfo zdd
-    return zdd 
+createZddFromBdd :: Bdd -> Zdd
+createZddFromBdd bdd = (ToZdd (Cudd.Cudd.cuddZddPortFromBdd manager bdd)) 
 
 
 ifthenelseZ :: Zdd -> Zdd -> Zdd -> Zdd
-ifthenelseZ (ToZdd x) (ToZdd y) (ToZdd z) = (ToZdd (Cudd.Cudd.cuddZddITE manager x y z))
+ifthenelseZ (ToZdd x) (ToZdd y) (ToZdd z) = ToZdd (Cudd.Cudd.cuddZddITE manager x y z)
 
 differenceZ :: Zdd -> Zdd -> Zdd
-differenceZ (ToZdd x) (ToZdd y) = (ToZdd (Cudd.Cudd.cuddZddDiff manager x y))
+differenceZ (ToZdd x) (ToZdd y) = unsafePerformIO $ do
+  putStrLn "about to intersect!, x -> y below"
+  printZddInfo (ToZdd x)
+  printZddInfo (ToZdd y)
+  let zdd = (ToZdd (Cudd.Cudd.cuddZddDiff manager x y))
+  putStrLn "result below"
+  printZddInfo zdd
+  return zdd
 
 intersectionZ :: Zdd -> Zdd -> Zdd
 intersectionZ (ToZdd x) (ToZdd y) = ToZdd (Cudd.Cudd.cuddZddIntersect manager x y)

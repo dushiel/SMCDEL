@@ -94,21 +94,30 @@ instance Semantics KnowScene where
   isTrue = evalViaBdd
 
 validViaBdd :: KnowStruct -> Form -> Bool
-validViaBdd kns@(KnS _ lawbdd _) f = top == lawbdd `imp` print where
-  print = unsafePerformIO $ do 
-    let p = bddOf kns f
-    printBddInfo p
-    return p
+validViaBdd kns@(KnS _ lawbdd _) f = top == lawbdd `imp` bddOf kns f
 
 -- ZDD stuff (also see data type declarations above)
---validViaZdd :: KnowStructZ -> Form -> Bool
---validViaZdd kns@(KnS _ lawzdd _) f = top == lawzdd `imp` ZddOf kns f
 
 validViaZddTest :: KnowStruct -> Form -> Bool
-validViaZddTest kns@(KnS _ lawbdd _)  f = topZ == lawzdd `differenceZ` transformedZdd where 
-  transformedZdd = unsafePerformIO $ zddtest $ bddOf kns f
-  lawzdd = unsafePerformIO $ zddtest $ lawbdd
+
+{-validViaZddTest kns@(KnS _ lawbdd _)  f = topZ == lawzdd 'differenceZ' transformedZdd where 
+-  transformedZdd = createZddFromBdd (bddOf kns f)
+  lawzdd = createZddFromBdd lawbdd
+
+ currently the printfunction needs to be called for the variables to be evaluated correctly, 
+ ask Malvin if he knows why. 
+-}
+
+validViaZddTest kns@(KnS _ lawbdd _)  f = unsafePerformIO $ do
+  let transformedZdd = createZddFromBdd $ bddOf kns f
+  let lawzdd = createZddFromBdd $ lawbdd
+  let b = differenceZ lawzdd transformedZdd
+  printZddInfo b
+  let z = topZ
+  printZddInfo z
+  let r = z == b
+  return r
 
 
-zddtest :: Bdd -> IO(Zdd)
+zddtest :: Bdd -> Zdd
 zddtest b = createZddFromBdd b
