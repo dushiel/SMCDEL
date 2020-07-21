@@ -10,7 +10,7 @@ module SMCDEL.Internal.MyHaskCUDD (
   ifthenelse,
   gfp,
   -- * Zdd functionalities
-  topZ, varZ, createZddFromBdd, differenceZ, intersectionZ, printZddInfo, printBddInfo,
+  topZ, varZ, createZddFromBdd, differenceZ, intersectionZ, printZddInfo, printBddInfo, botZ, writeZdd, writeBdd
 ) where
 
 import qualified Cudd.Cudd
@@ -101,6 +101,9 @@ newtype Zdd = ToZdd Cudd.Cudd.DdNode deriving (Eq,Show)
 topZ :: Zdd
 topZ = ToZdd (Cudd.Cudd.cuddZddReadOne manager)
 
+botZ :: Zdd
+botZ = ToZdd (Cudd.Cudd.cuddReadLogicZero manager)
+
 varZ :: Int -> Zdd
 varZ i = ToZdd (Cudd.Cudd.cuddZddIthVar manager i)
 
@@ -113,12 +116,12 @@ ifthenelseZ (ToZdd x) (ToZdd y) (ToZdd z) = ToZdd (Cudd.Cudd.cuddZddITE manager 
 
 differenceZ :: Zdd -> Zdd -> Zdd
 differenceZ (ToZdd x) (ToZdd y) = unsafePerformIO $ do
-  putStrLn "about to intersect!, x -> y below"
-  printZddInfo (ToZdd x)
-  printZddInfo (ToZdd y)
+  --putStrLn "about to intersect!, x -> y below"
+  --printZddInfo (ToZdd x)
+  --printZddInfo (ToZdd y)
   let zdd = (ToZdd (Cudd.Cudd.cuddZddDiff manager x y))
-  putStrLn "result below"
-  printZddInfo zdd
+  --putStrLn "result below"
+  --printZddInfo zdd
   return zdd
 
 intersectionZ :: Zdd -> Zdd -> Zdd
@@ -127,34 +130,22 @@ intersectionZ (ToZdd x) (ToZdd y) = ToZdd (Cudd.Cudd.cuddZddIntersect manager x 
 --data Dd = Either Zdd Bdd
 
 printZddInfo :: Zdd -> IO()
-printZddInfo (ToZdd dd) = do
-    putStrLn "Hello, zdd!"
-    Cudd.Cudd.cuddPrintDdInfo manager dd
+printZddInfo (ToZdd zdd) = do
+    putStrLn "zdd"
+    Cudd.Cudd.cuddPrintDdInfo manager zdd
 
 printBddInfo :: Bdd -> IO()
-printBddInfo dd = do
-    putStrLn "Hello, bdd!"
-    Cudd.Cudd.cuddPrintDdInfo manager dd
+printBddInfo bdd = do
+    putStrLn "bdd"
+    Cudd.Cudd.cuddPrintDdInfo manager bdd
+
+writeBdd:: Bdd -> String -> IO()
+writeBdd bdd f = Cudd.Cudd.cuddBddToDot manager bdd f
+
+writeZdd:: Zdd -> String -> IO()
+writeZdd (ToZdd zdd) f = Cudd.Cudd.cuddZddToDot manager zdd f
 
 
-
-{-printDdInfo dd = case dd of
-  Zdd dd -> do
-    putStrLn "Hello, bdd!"
-    Cudd.Cudd.cuddPrintDdInfo manager dd
-  Bdd dd -> do
-    putStrLn "Hello, bdd!"
-    Cudd.Cudd.cuddPrintDdInfo manager dd-}
-
-{-printDdInfo :: Zdd -> IO()
-printDdInfo dd = do
-    putStrLn "Hello, zdd!"
-    Cudd.Cudd.cuddPrintDdInfo manager dd
-
-printDdInfo :: Bdd -> IO()
-printDdInfo dd = do
-    putStrLn "Hello, bdd!"
-    Cudd.Cudd.cuddPrintDdInfo manager dd-}
 
 
 

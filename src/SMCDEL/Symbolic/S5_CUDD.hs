@@ -112,10 +112,13 @@ validViaZddTest kns@(KnS _ lawbdd _)  f = unsafePerformIO $ do
   let transformedZdd = createZddFromBdd $ bddOf kns f
   let lawzdd = createZddFromBdd $ lawbdd
   let b = differenceZ lawzdd transformedZdd
+  putStrLn "b and z to compare"
   printZddInfo b
-  let z = topZ
+  let z = botZ
+  putStrLn "z?"
   printZddInfo z
   let r = z == b
+  if r then putStrLn ("comparison: True") else putStrLn ("comparison: False")
   return r
 
 

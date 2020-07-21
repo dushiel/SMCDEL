@@ -16,9 +16,8 @@ import SMCDEL.Internal.Lex
 import SMCDEL.Internal.Parse
 import SMCDEL.Internal.TexDisplay
 import SMCDEL.Language
-import qualified SMCDEL.Symbolic.S5
+--import qualified SMCDEL.Symbolic.S5
 import SMCDEL.Symbolic.S5_CUDD
-import System.IO.Unsafe
 
 main :: IO ()
 main = do
