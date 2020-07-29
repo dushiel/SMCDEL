@@ -90,6 +90,14 @@ evalViaBdd (kns@(KnS allprops _ _),s) f = bool where
   b    = restrictSet (bddOf kns f) list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
 
+evalViaZdd :: KnowScene -> Form -> Bool
+evalViaZdd (kns@(KnSZ allprops _ _),s) f = bool where
+  bool | b==topZ = True
+       | b==botZ = False
+       | otherwise = error ("evalViaBdd failed: ZDD leftover:\n" ++ show b)
+  b    = restrictSetZ (createZddFromBdd (bddOf kns f)) list
+  list = [ (n, P n `elem` s) | (P n) <- allprops ]
+
 instance Semantics KnowScene where
   isTrue = evalViaBdd
 
@@ -119,8 +127,12 @@ validViaZddTest kns@(KnS _ lawbdd _)  f = unsafePerformIO $ do
   printZddInfo z
   let r = z == b
   if r then putStrLn ("comparison: True") else putStrLn ("comparison: False")
+  dotPrintZ transformedZdd
   return r
 
 
-zddtest :: Bdd -> Zdd
-zddtest b = createZddFromBdd b
+dotPrintZ :: Zdd -> IO()
+dotPrintZ b = writeZdd b "hello_zdd_graph"
+
+dotPrint :: Bdd -> IO()
+dotPrint b = writeBdd b "hello_bdd_graph"

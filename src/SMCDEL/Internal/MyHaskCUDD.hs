@@ -10,7 +10,9 @@ module SMCDEL.Internal.MyHaskCUDD (
   ifthenelse,
   gfp,
   -- * Zdd functionalities
-  topZ, varZ, createZddFromBdd, differenceZ, intersectionZ, printZddInfo, printBddInfo, botZ, writeZdd, writeBdd
+  topZ, varZ, createZddFromBdd, differenceZ, intersectionZ, botZ,  restrictSetZ,
+  -- * New helper functions
+  writeZdd, writeBdd, printZddInfo, printBddInfo
 ) where
 
 import qualified Cudd.Cudd
@@ -127,7 +129,23 @@ differenceZ (ToZdd x) (ToZdd y) = unsafePerformIO $ do
 intersectionZ :: Zdd -> Zdd -> Zdd
 intersectionZ (ToZdd x) (ToZdd y) = ToZdd (Cudd.Cudd.cuddZddIntersect manager x y)
 
---data Dd = Either Zdd Bdd
+impliesZ :: Zdd -> Zdd -> Zdd
+impliesZ (ToZdd x) (ToZdd y) = 
+  if botZ == ToZdd (Cudd.Cudd.cuddZddIntersect manager x y) then topZ
+  else botZ
+
+restrictZ :: Zdd -> (Int,Bool) -> Zdd
+restrictZ (ToZdd zdd) (n,bit) =  ToZdd $ if bit 
+  then Cudd.Cudd.cuddZddSub1 manager zdd n 
+else Cudd.Cudd.cuddZddSub0 manager zdd n
+
+
+restrictSetZ :: Zdd -> [(Int,Bool)] -> Zdd
+restrictSetZ _ [] = error "restricting with empty list"
+restrictSetZ zdd (var : []) = restrictZ zdd var
+restrictSetZ zdd (var : tail) = restrictSetZ (restrictZ zdd var) tail
+
+---helper functions placed here for now
 
 printZddInfo :: Zdd -> IO()
 printZddInfo (ToZdd zdd) = do
@@ -144,7 +162,6 @@ writeBdd bdd f = Cudd.Cudd.cuddBddToDot manager bdd f
 
 writeZdd:: Zdd -> String -> IO()
 writeZdd (ToZdd zdd) f = Cudd.Cudd.cuddZddToDot manager zdd f
-
 
 
 
