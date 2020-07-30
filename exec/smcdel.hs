@@ -33,10 +33,7 @@ main = do
   case parse $ alexScanTokens input of
     Left (lin,col) -> error ("Parse error in line " ++ show lin ++ ", column " ++ show col)
     Right (CheckInput vocabInts lawform obs jobs) -> do
-      --let cuddmykns = KnS (map P vocabInts) (boolBddOf lawform) (map (second (map P)) obs)
       let mykns = KnS (map P vocabInts) (boolBddOf lawform) (map (second (map P)) obs)
-      --let bdd = bddOf mykns lawform
-      --let myknsZ = KnSZ (map P vocabInts) (unsafePerformIO $ zddtest bdd) (map (second (map P)) obs)
       
       {-when texMode $
         hPutStrLn outHandle $ unlines
@@ -55,8 +52,8 @@ main = do
 doJob :: Handle -> Bool -> KnowStruct -> Job -> IO ()
 doJob outHandle True mykns (ValidQ f) = do
   hPutStrLn outHandle $ "Is $" ++ texForm (simplify f) ++ "$ valid on $\\mathcal{F}$?"
-  hPutStrLn outHandle (show (validViaBdd mykns f) ++ "\n")
-  hPutStrLn outHandle ("Zdd says: " ++ show (validViaZddTest mykns f) ++ "\n\n")
+  {-hPutStrLn outHandle (show (validViaBdd mykns f) ++ "\n")
+  hPutStrLn outHandle ("Zdd says: " ++ show (validViaZddTest mykns f) ++ "\n\n")-}
 doJob outHandle False mykns (ValidQ f) = do
   hPutStrLn outHandle $ "Is " ++ ppForm f ++ " valid on the given structure?"
   vividPutStrLn (show (validViaBdd mykns f) ++ "\n")
@@ -67,8 +64,8 @@ doJob outHandle True mykns (WhereQ f) = do
   hPutStrLn outHandle $ intercalate "," states-}
   hPutStrLn outHandle "$\n"
 doJob outHandle False mykns (WhereQ f) = do
-  {-hPutStrLn outHandle $ "At which states is " ++ ppForm f ++ " true?"
-  mapM_ (vividPutStrLn.show.map(\(P n) -> n)) (whereViaBdd mykns f)-}
+  hPutStrLn outHandle $ "At which states is " ++ ppForm f ++ " true?"
+  {-mapM_ (vividPutStrLn.show.map(\(P n) -> n)) (whereViaBdd mykns f)-}
   putStr "\n"
 
 getInputAndSettings :: IO (String,[String])

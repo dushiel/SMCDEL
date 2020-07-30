@@ -82,20 +82,12 @@ bddOf kns (PubAnnounceW form1 form2) =
     newform2b = bddOf (pubAnnounce kns (Neg form1)) form2
 bddOf _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
 
-evalViaBdd :: KnowScene -> Form -> Bool
+evalViaBdd :: KnowScene -> Form -> Bool 
 evalViaBdd (kns@(KnS allprops _ _),s) f = bool where
   bool | b==top = True
        | b==bot = False
        | otherwise = error ("evalViaBdd failed: BDD leftover:\n" ++ show b)
   b    = restrictSet (bddOf kns f) list
-  list = [ (n, P n `elem` s) | (P n) <- allprops ]
-
-evalViaZdd :: KnowScene -> Form -> Bool
-evalViaZdd (kns@(KnSZ allprops _ _),s) f = bool where
-  bool | b==topZ = True
-       | b==botZ = False
-       | otherwise = error ("evalViaBdd failed: ZDD leftover:\n" ++ show b)
-  b    = restrictSetZ (createZddFromBdd (bddOf kns f)) list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
 
 instance Semantics KnowScene where
@@ -120,16 +112,23 @@ validViaZddTest kns@(KnS _ lawbdd _)  f = unsafePerformIO $ do
   let transformedZdd = createZddFromBdd $ bddOf kns f
   let lawzdd = createZddFromBdd $ lawbdd
   let b = differenceZ lawzdd transformedZdd
-  putStrLn "b and z to compare"
+  putStrLn "... forceprint of b and z to compare"
   printZddInfo b
   let z = botZ
-  putStrLn "z?"
   printZddInfo z
   let r = z == b
-  if r then putStrLn ("comparison: True") else putStrLn ("comparison: False")
+  if r then putStrLn ("comparison: True \n") else putStrLn (".. comparison: False \n")
   dotPrintZ transformedZdd
   return r
 
+evalViaZdd :: KnowScene -> Form -> Bool
+evalViaZdd (kns@(KnSZ allprops _ obs),s) f = bool where
+  bool = validViaZddTest newKnSZ f
+  newKnSZ = KnSZ allprops restrictedZdd obs
+  restrictedZdd = restrictSetZ (createZddFromBdd (bddOf kns f)) list
+  list = [ (n, P n `elem` s) | (P n) <- allprops ]
+
+--dot print
 
 dotPrintZ :: Zdd -> IO()
 dotPrintZ b = writeZdd b "hello_zdd_graph"
