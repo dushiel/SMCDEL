@@ -11,6 +11,7 @@ module SMCDEL.Internal.MyHaskCUDD (
   gfp,
   -- * Zdd functionalities
   topZ, varZ, createZddFromBdd, differenceZ, intersectionZ, botZ,  restrictSetZ,
+  negZ, conZ, disZ,
   -- * New helper functions
   writeZdd, writeBdd, printZddInfo, printBddInfo
 ) where
@@ -109,9 +110,38 @@ botZ = ToZdd (Cudd.Cudd.cuddReadLogicZero manager)
 varZ :: Int -> Zdd
 varZ i = ToZdd (Cudd.Cudd.cuddZddIthVar manager i)
 
-createZddFromBdd :: Bdd -> Zdd
-createZddFromBdd bdd = (ToZdd (Cudd.Cudd.cuddZddPortFromBdd manager bdd)) 
+negZ :: Zdd -> Zdd
+negZ (ToZdd zdd) = ToZdd (Cudd.Cudd.cuddNot manager zdd)
 
+conZ :: Zdd -> Zdd -> Zdd
+conZ (ToZdd x) (ToZdd y) =  ToZdd (Cudd.Cudd.cuddZddIntersect manager x y)
+
+disZ :: Zdd -> Zdd -> Zdd
+disZ (ToZdd x) (ToZdd y) =  ToZdd (Cudd.Cudd.cuddZddUnion manager x y)
+
+{-xorZ :: Zdd -> Zdd -> Zdd --make sure this works!
+xorZ (ToZdd x) (ToZdd y) =  (ToZdd (differenceZ x y)) `conZ` (ToZdd (differenceZ y x))-}
+
+conSetZ :: [Zdd] -> Zdd
+conSetZ [] = error "empty AND list"
+conSetZ (b:[]) = b
+conSetZ (b:bs) = foldl conZ b bs
+
+disSetZ :: [Zdd] -> Zdd
+disSetZ [] = error "empty OR list"
+disSetZ (b:[]) = b
+disSetZ (b:bs) = foldl disZ b bs
+
+{-xorSetZ :: [Zdd] -> Zdd
+xorSetZ [] = error "empty XOR list"
+xorSetZ (b:[]) = b
+xorSetZ (b:bs) = foldl xorZ b bs-}
+
+impZ :: Zdd -> Zdd -> Zdd
+impZ (ToZdd z2) (ToZdd z1) = ToZdd (Cudd.Cudd.cuddZddITE manager z1 z2 t) where
+  ToZdd t = topZ
+
+---
 
 ifthenelseZ :: Zdd -> Zdd -> Zdd -> Zdd
 ifthenelseZ (ToZdd x) (ToZdd y) (ToZdd z) = ToZdd (Cudd.Cudd.cuddZddITE manager x y z)
@@ -144,6 +174,9 @@ restrictSetZ :: Zdd -> [(Int,Bool)] -> Zdd
 restrictSetZ _ [] = error "restricting with empty list"
 restrictSetZ zdd (var : []) = restrictZ zdd var
 restrictSetZ zdd (var : tail) = restrictSetZ (restrictZ zdd var) tail
+
+createZddFromBdd :: Bdd -> Zdd
+createZddFromBdd bdd = (ToZdd (Cudd.Cudd.cuddZddPortFromBdd manager bdd)) 
 
 ---helper functions placed here for now
 

@@ -98,6 +98,52 @@ validViaBdd kns@(KnS _ lawbdd _) f = top == lawbdd `imp` bddOf kns f
 
 -- ZDD stuff (also see data type declarations above)
 
+zddOf :: KnowStruct -> Form -> Zdd
+zddOf _   Top           = topZ
+zddOf _   Bot           = botZ
+zddOf _   (PrpF (P n))  = varZ n
+zddOf kns (Neg form)    = negZ $ zddOf kns form
+
+{-zddOf kns (Conj forms)  = conSet $ map (zddOf kns) forms
+zddOf kns (Disj forms)  = disSet $ map (zddOf kns) forms
+zddOf kns (Xor  forms)  = xorSet $ map (zddOf kns) forms
+
+zddOf kns (Impl f g)    = imp (zddOf kns f) (zddOf kns g)
+zddOf kns (Equi f g)    = equ (zddOf kns f) (zddOf kns g)
+
+zddOf kns (Forall ps f) = forallSet (map fromEnum ps) (zddOf kns f)
+zddOf kns (Exists ps f) = existsSet (map fromEnum ps) (zddOf kns f)
+
+zddOf kns@(KnS allprops lawzdd obs) (K i form) =
+  forallSet otherps (imp lawzdd (zddOf kns form)) where
+    otherps = map (\(P n) -> n) $ allprops \\ apply obs i
+zddOf kns@(KnS allprops lawzdd obs) (Kw i form) =
+  disSet [ forallSet otherps (imp lawzdd (zddOf kns f)) | f <- [form, Neg form] ] where
+    otherps = map (\(P n) -> n) $ allprops \\ apply obs i
+zddOf kns@(KnS allprops lawzdd obs) (Ck ags form) = gfp lambda where
+  lambda z = conSet $ zddOf kns form : [ forallSet (otherps i) (imp lawzdd z) | i <- ags ]
+  otherps i = map (\(P n) -> n) $ allprops \\ apply obs i
+zddOf kns (Ckw ags form) = dis (zddOf kns (Ck ags form)) (zddOf kns (Ck ags (Neg form)))
+zddOf kns@(KnS props _ _) (Announce ags form1 form2) =
+  imp (zddOf kns form1) (restrict zdd2 (k,True)) where
+    zdd2  = zddOf (announce kns ags form1) form2
+    (P k) = freshp props
+zddOf kns@(KnS props _ _) (AnnounceW ags form1 form2) =
+  ifthenelse (zddOf kns form1) zdd2a zdd2b where
+    zdd2a = restrict (zddOf (announce kns ags form1) form2) (k,True)
+    zdd2b = restrict (zddOf (announce kns ags form1) form2) (k,False)
+    (P k) = freshp props
+zddOf kns (PubAnnounce form1 form2) = imp (zddOf kns form1) newform2 where
+    newform2 = zddOf (pubAnnounce kns form1) form2
+zddOf kns (PubAnnounceW form1 form2) =
+  ifthenelse (zddOf kns form1) newform2a newform2b where
+    newform2a = zddOf (pubAnnounce kns form1) form2
+    newform2b = zddOf (pubAnnounce kns (Neg form1)) form2-}
+
+zddOf _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
+
+
+
 validViaZddTest :: KnowStruct -> Form -> Bool
 
 {-validViaZddTest kns@(KnS _ lawbdd _)  f = topZ == lawzdd 'differenceZ' transformedZdd where 
