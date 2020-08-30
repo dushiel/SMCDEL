@@ -106,26 +106,26 @@ validViaBdd kns@(KnS _ lawbdd _) f = top == lawbdd `imp` bddOf kns f
 
 -- ZDD stuff (also see data type declarations above)
 
-boolZddOf :: Form -> Zdd
-boolZddOf Top           = trace "Top" topZ
-boolZddOf Bot           = trace "Bot" topZ
-boolZddOf (PrpF (P n))  = trace ("prp " ++ show n) varZ n
-boolZddOf (Neg form)    = trace "neg" negZ$ boolZddOf form
-boolZddOf (Conj forms)  = trace "conj" conSetZ $ map boolZddOf forms
-boolZddOf (Disj forms)  = trace "disj" disSetZ  $ map boolZddOf forms
-boolZddOf (Impl f g)    = trace "imp" impZ (boolZddOf f) (boolZddOf g)
-boolZddOf (Equi f g)    = trace "equ" equZ (boolZddOf f) (boolZddOf g)
-boolZddOf (Forall ps f) = trace "forall" boolZddOf (foldl singleForall f ps) where
+boolZddOf :: [Prp] -> Form -> Zdd
+boolZddOf _   Top           = trace "Top" topZ
+boolZddOf _   Bot           = trace "Bot" topZ
+boolZddOf _   (PrpF (P n))  = trace ("prp " ++ show n) varZ n
+boolZddOf v   (Neg form)    = trace "neg" (negZ (boolZddOf v form) (prpToInt v))
+boolZddOf v   (Conj forms)  = trace "conj" conSetZ $ map (boolZddOf v) forms
+boolZddOf v   (Disj forms)  = trace "disj" disSetZ $ map (boolZddOf v) forms
+boolZddOf v   (Impl f g)    = trace "imp" impZ (boolZddOf v f) (boolZddOf v g)
+boolZddOf v   (Equi f g)    = trace "equ" equZ (boolZddOf v f) (boolZddOf v g)
+boolZddOf v   (Forall ps f) = trace "forall" boolZddOf v (foldl singleForall f ps) where
   singleForall g p = Conj [ substit p Top g, substit p Bot g ]
-boolZddOf (Exists ps f) = trace "exists" boolZddOf (foldl singleExists f ps) where
+boolZddOf v   (Exists ps f) = trace "exists" boolZddOf v (foldl singleExists f ps) where
   singleExists g p = Disj [ substit p Top g, substit p Bot g ]
-boolZddOf _             = error "boolZddOf failed: Not a boolean formula."
+boolZddOf _   _             = error "boolZddOf failed: Not a boolean formula."
 
 zddOf :: KnowStruct -> Form -> Zdd
 zddOf _   Top           = trace ".Top" topZ
 zddOf _   Bot           = trace ".Bot" topZ
 zddOf _   (PrpF (P n))  = trace (".prp " ++ show n) varZ n
-zddOf kns (Neg form)    = trace ".neg" negZ $ zddOf kns form
+zddOf kns@(KnSZ v _ _) (Neg form) = trace ".neg" negZ (zddOf kns form) (prpToInt v)
 
 zddOf kns (Conj forms)  = trace ".conj" (conSetZ $ map (zddOf kns) forms)
 zddOf kns (Disj forms)  = trace ".disj" (disSetZ $ map (zddOf kns) forms)
@@ -173,7 +173,7 @@ zddOf kns (PubAnnounceW form1 form2) =
 zddOf _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
 
 validViaZdd :: KnowStruct -> Form -> Bool
-validViaZdd kns@(KnSZ _ lawzdd _) f = botZ ==  boolZddOf f `differenceZ` lawzdd
+validViaZdd kns@(KnSZ v lawzdd _) f = botZ ==  (boolZddOf v f) `differenceZ` lawzdd
 
 {-validViaZddTest :: KnowStruct -> Form -> Bool
 validViaZddTest kns@(KnS vocab lawbdd _)  f = unsafePerformIO $! do 
@@ -198,10 +198,14 @@ evalViaZdd (kns@(KnSZ allprops _ obs),s) f = bool where
   list = [ (n, P n `elem` s) | (P n) <- allprops ]-}
 
 
-initZddVars :: [Int] -> Bool
-initZddVars vocab = unsafePerformIO $! do
-  let _ = initZddVarsWithInt vocab
-  return True
+initZddVars :: [Int] -> IO()
+initZddVars vocab = do
+  let z = initZddVarsWithInt vocab
+  printZddInfo z "init"
+  return ()
+
+prpToInt :: [Prp] -> [Int]
+prpToInt vocab = map (\(P n) -> n) vocab
 
 --dot print
 

@@ -111,8 +111,9 @@ botZ = ToZdd (Cudd.Cudd.cuddReadLogicZero manager)
 varZ :: Int -> Zdd
 varZ i = ToZdd (Cudd.Cudd.cuddZddIthVar manager i)
 
-negZ :: Zdd -> Zdd
-negZ (ToZdd zdd) = ToZdd (Cudd.Cudd.cuddNot manager zdd)
+negZ :: Zdd -> [Int] -> Zdd
+negZ z v = (initZddVarsWithInt v) `differenceZ` z
+  
 
 conZ :: Zdd -> Zdd -> Zdd
 conZ (ToZdd x) (ToZdd y) =  ToZdd (Cudd.Cudd.cuddZddIntersect manager x y)
@@ -211,7 +212,7 @@ createZddFromBdd bdd = unsafePerformIO $ do
 initZddVarsWithInt :: [Int] -> Zdd
 initZddVarsWithInt [] = error "initialising empty vocabulary list of zdd vars"
 initZddVarsWithInt (n: []) = varZ n 
-initZddVarsWithInt (n: ns) = varZ n `conZ` initZddVarsWithInt ns
+initZddVarsWithInt (n: ns) = varZ n `disZ` initZddVarsWithInt ns
 
 ---helper functions placed here for now
 
