@@ -33,13 +33,13 @@ main = do
   case parse $ alexScanTokens input of
     Left (lin,col) -> error ("Parse error in line " ++ show lin ++ ", column " ++ show col)
     Right (CheckInput vocabInts lawform obs jobs) -> do
-      let mykns = KnS (map P vocabInts) (boolBddOf lawform) (map (second (map P)) obs)
       
-      {-when texMode $
-        hPutStrLn outHandle $ unlines
-          [ "\\section{Given Knowledge Structure}", "\\[ (\\mathcal{F},s) = (" ++ tex ((mykns,[])::KnowScene) ++ ") \\]", "\\section{Results}" ]
-      -}
-      mapM_ (doJob outHandle texMode mykns) jobs
+      let mykns = KnS (map P vocabInts) (boolBddOf lawform) (map (second (map P)) obs)
+      --let b = initZddVars vocabInts
+      let myknsZ = KnSZ (map P vocabInts) (boolZddOf $! lawform) (map (second (map P)) obs)
+      hPutStrLn outHandle $ "The law: " ++ ppForm lawform 
+      
+      mapM_ (doJob outHandle texMode mykns myknsZ) jobs
       when texMode $ hPutStrLn outHandle texEnd
       when showMode $ do
         hClose outHandle
@@ -49,21 +49,22 @@ main = do
         return ()
       putStrLn "\nDoei!"
 
-doJob :: Handle -> Bool -> KnowStruct -> Job -> IO ()
-doJob outHandle True mykns (ValidQ f) = do
+doJob :: Handle -> Bool -> KnowStruct -> KnowStruct -> Job -> IO ()
+doJob outHandle True mykns myknsZ (ValidQ f) = do
   hPutStrLn outHandle $ "Is $" ++ texForm (simplify f) ++ "$ valid on $\\mathcal{F}$?"
   {-hPutStrLn outHandle (show (validViaBdd mykns f) ++ "\n")
   hPutStrLn outHandle ("Zdd says: " ++ show (validViaZddTest mykns f) ++ "\n\n")-}
-doJob outHandle False mykns (ValidQ f) = do
+doJob outHandle False mykns myknsZ (ValidQ f) = do
   hPutStrLn outHandle $ "Is " ++ ppForm f ++ " valid on the given structure?"
   vividPutStrLn (show (validViaBdd mykns f) ++ "\n")
-  hPutStrLn outHandle ("Zdd says: " ++ show (validViaZddTest mykns f) ++ "\n\n")
-doJob outHandle True mykns (WhereQ f) = do
+  --hPutStrLn outHandle ("Zdd convertion says: " ++ show (validViaZddTest mykns f) ++ "\n")
+  hPutStrLn outHandle ("Zdd builder says: " ++ show (validViaZdd myknsZ f) ++ "\n\n")
+doJob outHandle True mykns myknsZ (WhereQ f) = do
   hPutStrLn outHandle $ "At which states is $" ++ texForm (simplify f) ++ "$ true? $"
   {-let states = map tex (whereViaBdd mykns f)
   hPutStrLn outHandle $ intercalate "," states-}
   hPutStrLn outHandle "$\n"
-doJob outHandle False mykns (WhereQ f) = do
+doJob outHandle False mykns myknsZ (WhereQ f) = do
   hPutStrLn outHandle $ "At which states is " ++ ppForm f ++ " true?"
   {-mapM_ (vividPutStrLn.show.map(\(P n) -> n)) (whereViaBdd mykns f)-}
   putStr "\n"
