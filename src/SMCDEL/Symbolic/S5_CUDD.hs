@@ -106,26 +106,26 @@ validViaBdd kns@(KnS _ lawbdd _) f = top == lawbdd `imp` bddOf kns f
 
 -- ZDD stuff (also see data type declarations above)
 
-boolZddOf :: [Prp] -> Form -> Zdd
-boolZddOf _   Top           = trace "Top" topZ
-boolZddOf _   Bot           = trace "Bot" topZ
-boolZddOf _   (PrpF (P n))  = trace ("prp " ++ show n) varZ n
-boolZddOf v   (Neg form)    = trace "neg" (negZ (boolZddOf v form) (prpToInt v))
-boolZddOf v   (Conj forms)  = trace "conj" conSetZ $ map (boolZddOf v) forms
-boolZddOf v   (Disj forms)  = trace "disj" disSetZ $ map (boolZddOf v) forms
-boolZddOf v   (Impl f g)    = trace "imp" impZ (boolZddOf v f) (boolZddOf v g)
-boolZddOf v   (Equi f g)    = trace "equ" equZ (boolZddOf v f) (boolZddOf v g)
-boolZddOf v   (Forall ps f) = trace "forall" boolZddOf v (foldl singleForall f ps) where
+boolZddOf :: Form -> Zdd
+boolZddOf Top           = trace "Top" topZ
+boolZddOf Bot           = trace "Bot" botZ
+boolZddOf (PrpF (P n))  = trace ("prp " ++ show n) varZ n
+boolZddOf (Neg form)    = trace "neg" negZ (boolZddOf form)
+boolZddOf (Conj forms)  = trace "conj" conSetZ $ map boolZddOf forms
+boolZddOf (Disj forms)  = trace "disj" disSetZ $ map boolZddOf forms
+boolZddOf (Impl f g)    = trace "imp" impZ (boolZddOf f) (boolZddOf g)
+boolZddOf (Equi f g)    = trace "equ" equZ (boolZddOf f) (boolZddOf g)
+boolZddOf (Forall ps f) = trace "forall" boolZddOf (foldl singleForall f ps) where
   singleForall g p = Conj [ substit p Top g, substit p Bot g ]
-boolZddOf v   (Exists ps f) = trace "exists" boolZddOf v (foldl singleExists f ps) where
+boolZddOf (Exists ps f) = trace "exists" boolZddOf (foldl singleExists f ps) where
   singleExists g p = Disj [ substit p Top g, substit p Bot g ]
-boolZddOf _   _             = error "boolZddOf failed: Not a boolean formula."
+boolZddOf _             = error "boolZddOf failed: Not a boolean formula."
 
 zddOf :: KnowStruct -> Form -> Zdd
 zddOf _   Top           = trace ".Top" topZ
-zddOf _   Bot           = trace ".Bot" topZ
+zddOf _   Bot           = trace ".Bot" botZ
 zddOf _   (PrpF (P n))  = trace (".prp " ++ show n) varZ n
-zddOf kns@(KnSZ v _ _) (Neg form) = trace ".neg" negZ (zddOf kns form) (prpToInt v)
+zddOf kns (Neg form) = trace ".neg" negZ (zddOf kns form)
 
 zddOf kns (Conj forms)  = trace ".conj" (conSetZ $ map (zddOf kns) forms)
 zddOf kns (Disj forms)  = trace ".disj" (disSetZ $ map (zddOf kns) forms)
@@ -173,35 +173,42 @@ zddOf kns (PubAnnounceW form1 form2) =
 zddOf _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
 
 validViaZdd :: KnowStruct -> Form -> Bool
-validViaZdd kns@(KnSZ v lawzdd _) f = botZ ==  (boolZddOf v f) `differenceZ` lawzdd
+validViaZdd kns@(KnSZ _ lawzdd _) f = unsafePerformIO $ do 
+  let a = (existsSet [2] (var 3)) `imp` var 3
+  let b = (existsSetZ [2] (varZ 3)) `impZ` varZ 3
 
-{-validViaZddTest :: KnowStruct -> Form -> Bool
-validViaZddTest kns@(KnS vocab lawbdd _)  f = unsafePerformIO $! do 
-  let z = initZddVars vocab
-  let transformedZdd = createZddFromBdd (bddOf kns f)
-  printZddInfo transformedZdd "zdd from query"
-  --printBddInfo (bddOf kns f)
-  let lawzdd = createZddFromBdd lawbdd
-  printZddInfo lawzdd "zdd from law"
-  --printBddInfo lawbdd
-  let diff = lawzdd `differenceZ` transformedZdd  
-  --printZddInfo diff "diff result\n"
-  let b = botZ == diff
-  return b-}
+  let c = (varZ 1) `impZ` (varZ 1)
+  
+  let d = (varZ 1) `conZ` (topZ) 
+
+  let x = (forall 1 (var 3)) `imp` var 3
+  let y = (forallZ 1 (varZ 3)) `impZ` varZ 3
+
+  putStrLn ("basic check, 1&2 -> 1&2: " ++ show (c == topZ))
+  printZddInfo c "basic check"
+  putStrLn ("exists zdd equal to bdd: " ++ show ((a == top) == (b == topZ)))
+  printZddInfo y "exists zdd"
+  putStrLn ("forall zdd equal to bdd: " ++ show ((x == top) == (y == topZ)))
+  printZddInfo y "forall zdd"
+  
+  let z = topZ == (zddOf kns f) `impZ` lawzdd
+  return z
 
 
-{-evalViaZdd :: KnowScene -> Form -> Bool
+
+evalViaZdd :: KnowScene -> Form -> Bool
 evalViaZdd (kns@(KnSZ allprops _ obs),s) f = bool where
-  bool = validViaZddTest newKnSZ f
-  newKnSZ = KnSZ allprops restrictedZdd obs
-  restrictedZdd = restrictSetZ (createZddFromBdd (bddOf kns f)) list
-  list = [ (n, P n `elem` s) | (P n) <- allprops ]-}
+  bool | z==topZ = True
+       | z==botZ = False
+       | otherwise = error ("evalViaZdd failed: ZDD leftover:\n" ++ show z)
+  z    = restrictSetZ (zddOf kns f) list
+  list = [ (n, P n `elem` s) | (P n) <- allprops ]
 
 
 initZddVars :: [Int] -> IO()
 initZddVars vocab = do
-  let z = initZddVarsWithInt vocab
-  printZddInfo z "init"
+  let v = initZddVarsWithInt vocab
+  printZddInfo v "init!"
   return ()
 
 prpToInt :: [Prp] -> [Int]

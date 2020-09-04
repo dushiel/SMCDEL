@@ -10,7 +10,7 @@ module SMCDEL.Internal.MyHaskCUDD (
   ifthenelse,
   gfp,
   -- * Zdd functionalities
-  topZ, varZ, createZddFromBdd, differenceZ, intersectionZ, botZ, restrictZ, restrictSetZ,
+  topZ, varZ, createZddFromBdd, differenceZ, botZ, restrictZ, restrictSetZ,
   negZ, conZ, disZ, impZ, disSetZ, conSetZ, xorZ, xorSetZ,
   existsZ, existsSetZ, forallZ, forallSetZ, equZ, ifthenelseZ, gfpZ, initZddVarsWithInt,
   -- * New helper functions
@@ -105,26 +105,27 @@ newtype Zdd = ToZdd Cudd.Cudd.DdNode deriving (Eq,Show)
 topZ :: Zdd
 topZ = ToZdd (Cudd.Cudd.cuddZddReadOne manager)
 
+
 botZ :: Zdd
-botZ = ToZdd (Cudd.Cudd.cuddReadLogicZero manager)
+botZ = ToZdd (Cudd.Cudd.cuddZddReadZero manager)
 
 varZ :: Int -> Zdd
 varZ i = ToZdd (Cudd.Cudd.cuddZddIthVar manager i)
 
-negZ :: Zdd -> [Int] -> Zdd
-negZ z v = (initZddVarsWithInt v) `differenceZ` z
+negZ :: Zdd -> Zdd
+negZ z = topZ `differenceZ` z
   
 
 conZ :: Zdd -> Zdd -> Zdd
-conZ (ToZdd x) (ToZdd y) =  ToZdd (Cudd.Cudd.cuddZddIntersect manager x y)
+conZ (ToZdd z1) (ToZdd z2) = ToZdd (Cudd.Cudd.cuddZddIntersect manager z1 z2)
 
 disZ :: Zdd -> Zdd -> Zdd
-disZ (ToZdd x) (ToZdd y) =  ToZdd (Cudd.Cudd.cuddZddUnion manager x y)
+disZ (ToZdd z1) (ToZdd z2) = ToZdd (Cudd.Cudd.cuddZddUnion manager z1 z2)
 
 xorZ :: Zdd -> Zdd -> Zdd 
-xorZ x y =  a `conZ` b where
-  a = differenceZ x y 
-  b = differenceZ y x
+xorZ z1 z2 =  a `conZ` b where
+  a = differenceZ z1 z2 
+  b = differenceZ z2 z1
 
 conSetZ :: [Zdd] -> Zdd
 conSetZ [] = error "empty AND list"
@@ -142,22 +143,41 @@ xorSetZ [z] = z
 xorSetZ (z:zs) = foldl xorZ z zs
 
 impZ :: Zdd -> Zdd -> Zdd
-impZ (ToZdd z2) (ToZdd z1) = ToZdd (Cudd.Cudd.cuddZddITE manager z1 z2 t) where
+impZ (ToZdd z1) (ToZdd z2) = ToZdd $ Cudd.Cudd.cuddZddITE manager z1 z1 t where
   ToZdd t = topZ
+{-}  | ToZdd z1 == botZ = topZ 
+  | ToZdd z2 == botZ = negZ $ ToZdd z2
+  | otherwise = test z1 z2-}
+  
+{-test :: Bdd -> Bdd -> Zdd
+test z1 z2 = unsafePerformIO $ do
+  let ToZdd t = topZ
+  let r = ToZdd $ Cudd.Cudd.cuddZddDiff manager z1 z2
+  let s = ToZdd $ Cudd.Cudd.cuddZddITE manager z1 z2 t
+  putStrLn ("diff equal to ITE: " ++ show (r == s))
+  return r-}
 
 equZ :: Zdd -> Zdd -> Zdd
 equZ a b = (impZ a b) `conZ` (impZ b a)
 
 existsZ :: Int -> Zdd -> Zdd
-existsZ n (ToZdd zdd) =  x `conZ` y where
+existsZ n (ToZdd zdd) =  x `disZ` y where
   x = ToZdd $ Cudd.Cudd.cuddZddSub0 manager zdd n
-  y = ToZdd $ Cudd.Cudd.cuddZddSub0 manager zdd n
+  y = ToZdd $ Cudd.Cudd.cuddZddSub1 manager zdd n
 
 forallZ :: Int -> Zdd -> Zdd
-forallZ n (ToZdd zdd) =  x `disZ` y where
-  x = ToZdd $ Cudd.Cudd.cuddZddSub0 manager zdd n
-  y = ToZdd $ Cudd.Cudd.cuddZddSub0 manager zdd n
-
+forallZ n (ToZdd zdd) = unsafePerformIO $! do
+  --printZddInfo (divideZ (varZ 2) (varZ 3)) "test: if 1 then 2 else 3"
+  let x = ToZdd (Cudd.Cudd.cuddZddSub1 manager zdd n)
+  --printZddInfo (x) "forall x1: "
+  let y = ToZdd (Cudd.Cudd.cuddZddSub0 manager zdd n)
+  --printZddInfo (y) "forall x0: "
+  let z = (ifthenelseZ (varZ n) x y)
+  --printZddInfo z "result: "
+  return z
+  
+divideZ :: Zdd -> Zdd -> Zdd
+divideZ (ToZdd z1) (ToZdd z2) = ToZdd (Cudd.Cudd.cuddZddDivide manager z1 z2)
 
 existsSetZ :: [Int] -> Zdd -> Zdd
 existsSetZ [] _ = error "empty ExistsVar list"
@@ -183,21 +203,12 @@ ifthenelseZ :: Zdd -> Zdd -> Zdd -> Zdd
 ifthenelseZ (ToZdd x) (ToZdd y) (ToZdd z) = ToZdd (Cudd.Cudd.cuddZddITE manager x y z)
 
 differenceZ :: Zdd -> Zdd -> Zdd
-differenceZ (ToZdd x) (ToZdd y) = unsafePerformIO $! do
-  printZddInfo (ToZdd x) "difference: x - y\n x/query ="
-  printZddInfo (ToZdd y) " y/law ="
-  let zdd = (ToZdd (Cudd.Cudd.cuddZddDiff manager x y))
-  printZddInfo zdd "result"
-  return zdd
-
-intersectionZ :: Zdd -> Zdd -> Zdd
-intersectionZ (ToZdd x) (ToZdd y) = ToZdd (Cudd.Cudd.cuddZddIntersect manager x y)
+differenceZ (ToZdd x) (ToZdd y) = ToZdd (Cudd.Cudd.cuddZddDiff manager x y)
 
 restrictZ :: Zdd -> (Int,Bool) -> Zdd
 restrictZ (ToZdd zdd) (n,bit) =  ToZdd $ if bit 
   then Cudd.Cudd.cuddZddSub1 manager zdd n 
 else Cudd.Cudd.cuddZddSub0 manager zdd n
-
 
 restrictSetZ :: Zdd -> [(Int,Bool)] -> Zdd
 restrictSetZ _ [] = error "restricting with empty list"
@@ -232,8 +243,13 @@ writeBdd bdd f = Cudd.Cudd.cuddBddToDot manager bdd f
 writeZdd:: Zdd -> String -> IO()
 writeZdd (ToZdd zdd) f = Cudd.Cudd.cuddZddToDot manager zdd f
 
+{-}
+applyToDd :: dd -> args -> DdF ( ToZddF zdd -> args -> zdd | ToBddF bdd -> args -> bdd) -> dd
+printDdInfo (ToZdd z) (ToZddF zddFunc) = Dd zddFunc z
+printDdInfo (ToBdd b) (ToBddF bddFunc) = Dd bddFunc b
 
-
+printDdInfo :: (zdd -> zdd | bdd -> bdd)
+printDdInfo = ()-}
 
 
 
