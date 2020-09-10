@@ -129,3 +129,22 @@ instance (Ord a, Show a, KripkeLike a) => TexAble (ViaDot a) where
   texDocumentTo (ViaDot x) filename = do
     _ <- runGraphviz (toGraph x) DotOutput (filename ++ ".dot")
     runAndWait $ "dot2tex -ftikz -traw -p --autosize -w --usepdflatex "++filename++".dot -o "++filename++".tex;"
+{-}
+class DotAble a --where
+  --ddToDot = do
+  --zddToDot
+  --bddToDow
+
+instance (Ord a, Show a, DotAble a) => TexAble (ViaDot a) where
+  tex (ViaDot x) = unsafePerformIO $
+    withSystemTempDirectory "smcdel" $ \tmpdir -> do
+      --_ <- ddToDot x (tmpdir ++ "/temp.dot")
+      runAndWait $ "dot2tex --figonly -ftikz -traw -p --autosize -w --usepdflatex "++tmpdir++"/temp.dot | sed '/^$/d' > "++tmpdir++"/temp.tex;"
+      readFile (tmpdir ++ "/temp.tex")
+  texTo (ViaDot x) filename = do
+    --_ <- ddToDot x (filename ++ ".dot")
+    runAndWait $ "dot2tex --figonly -ftikz -traw -p --autosize -w --usepdflatex "++filename++".dot | sed '/^$/d' > "++filename++".tex;"
+  texDocumentTo (ViaDot x) filename = do
+    --_ <- ddToDot x (filename ++ ".dot")
+    runAndWait $ "dot2tex -ftikz -traw -p --autosize -w --usepdflatex "++filename++".dot -o "++filename++".tex;"
+-}

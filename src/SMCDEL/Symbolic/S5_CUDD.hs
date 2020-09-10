@@ -24,7 +24,7 @@ boolBddOf (Exists ps f) = boolBddOf (foldl singleExists f ps) where
   singleExists g p = Disj [ substit p Top g, substit p Bot g ]
 boolBddOf _             = error "boolBddOf failed: Not a boolean formula."
 
-data KnowStruct = KnS [Prp] Bdd [(Agent,[Prp])] | KnSZ [Prp] Zdd [(Agent,[Prp])] deriving (Eq,Show)
+data KnowStruct = KnS [Prp] !Bdd [(Agent,[Prp])] | KnSZ [Prp] !Zdd [(Agent,[Prp])] deriving (Eq,Show)
 type KnState = [Prp]
 type KnowScene = (KnowStruct,KnState)
 
@@ -107,94 +107,97 @@ validViaBdd kns@(KnS _ lawbdd _) f = top == lawbdd `imp` bddOf kns f
 -- ZDD stuff (also see data type declarations above)
 
 boolZddOf :: Form -> Zdd
-boolZddOf Top           = trace "Top" topZ
-boolZddOf Bot           = trace "Bot" botZ
-boolZddOf (PrpF (P n))  = trace ("prp " ++ show n) varZ n
-boolZddOf (Neg form)    = trace "neg" negZ (boolZddOf form)
-boolZddOf (Conj forms)  = trace "conj" conSetZ $ map boolZddOf forms
-boolZddOf (Disj forms)  = trace "disj" disSetZ $ map boolZddOf forms
-boolZddOf (Impl f g)    = trace "imp" impZ (boolZddOf f) (boolZddOf g)
-boolZddOf (Equi f g)    = trace "equ" equZ (boolZddOf f) (boolZddOf g)
-boolZddOf (Forall ps f) = trace "forall" boolZddOf (foldl singleForall f ps) where
+boolZddOf Top           = topZ
+boolZddOf Bot           = botZ
+boolZddOf (PrpF (P n))  = varZ n
+boolZddOf (Neg form)    = negZ (boolZddOf form)
+boolZddOf (Conj forms)  = conSetZ $ map boolZddOf forms
+boolZddOf (Disj forms)  = disSetZ $ map boolZddOf forms
+boolZddOf (Impl f g)    = impZ (boolZddOf f) (boolZddOf g)
+boolZddOf (Equi f g)    = equZ (boolZddOf f) (boolZddOf g)
+boolZddOf (Forall ps f) = boolZddOf (foldl singleForall f ps) where
   singleForall g p = Conj [ substit p Top g, substit p Bot g ]
-boolZddOf (Exists ps f) = trace "exists" boolZddOf (foldl singleExists f ps) where
+boolZddOf (Exists ps f) = boolZddOf (foldl singleExists f ps) where
   singleExists g p = Disj [ substit p Top g, substit p Bot g ]
 boolZddOf _             = error "boolZddOf failed: Not a boolean formula."
 
 zddOf :: KnowStruct -> Form -> Zdd
-zddOf _   Top           = trace ".Top" topZ
-zddOf _   Bot           = trace ".Bot" botZ
-zddOf _   (PrpF (P n))  = trace (".prp " ++ show n) varZ n
-zddOf kns (Neg form) = trace ".neg" negZ (zddOf kns form)
+zddOf _   Top           = topZ
+zddOf _   Bot           = botZ
+zddOf _   (PrpF (P n))  = varZ n
+zddOf kns (Neg form) = negZ (zddOf kns form)
 
-zddOf kns (Conj forms)  = trace ".conj" (conSetZ $ map (zddOf kns) forms)
-zddOf kns (Disj forms)  = trace ".disj" (disSetZ $ map (zddOf kns) forms)
-zddOf kns (Xor  forms)  = trace ".xor" (xorSetZ $ map (zddOf kns) forms)
+zddOf kns (Conj forms)  = conSetZ $ map (zddOf kns) forms
+zddOf kns (Disj forms)  = disSetZ $ map (zddOf kns) forms
+zddOf kns (Xor  forms)  = xorSetZ $ map (zddOf kns) forms
 
-zddOf kns (Impl f g)    = trace ".impl" (impZ (zddOf kns f) (zddOf kns g))
-zddOf kns (Equi f g)    = trace ".equ" (equZ (zddOf kns f) (zddOf kns g))
+zddOf kns (Impl f g)    = impZ (zddOf kns f) (zddOf kns g)
+zddOf kns (Equi f g)    = equZ (zddOf kns f) (zddOf kns g)
 
-zddOf kns (Forall ps f) = trace ".forall" (forallSetZ (map fromEnum ps) (zddOf kns f))
-zddOf kns (Exists ps f) = trace ".exists" (existsSetZ (map fromEnum ps) (zddOf kns f))
+zddOf kns (Forall ps f) = forallSetZ (map fromEnum ps) (zddOf kns f)
+zddOf kns (Exists ps f) = existsSetZ (map fromEnum ps) (zddOf kns f)
 
-zddOf kns@(KnSZ allprops lawzdd obs) (K i form) = trace ".k"
-  (forallSetZ otherps (impZ lawzdd (zddOf kns form))) where
+zddOf kns@(KnSZ allprops lawzdd obs) (K i form) =
+  forallSetZ otherps (impZ lawzdd (zddOf kns form)) where
     otherps = map (\(P n) -> n) $ allprops \\ apply obs i
 
-zddOf kns@(KnSZ allprops lawzdd obs) (Kw i form) = trace ".kw"
-  (disSetZ [ forallSetZ otherps (impZ lawzdd (zddOf kns f)) | f <- [form, Neg form] ]) where
+zddOf kns@(KnSZ allprops lawzdd obs) (Kw i form) =
+  disSetZ [ forallSetZ otherps (impZ lawzdd (zddOf kns f)) | f <- [form, Neg form] ] where
     otherps = map (\(P n) -> n) $ allprops \\ apply obs i
 
-zddOf kns@(KnSZ allprops lawzdd obs) (Ck ags form) = trace ".commonK" (gfpZ lambda) where
+zddOf kns@(KnSZ allprops lawzdd obs) (Ck ags form) = gfpZ lambda where
   lambda z = conSetZ $ zddOf kns form : [ forallSetZ (otherps i) (impZ lawzdd z) | i <- ags ]
   otherps i = map (\(P n) -> n) $ allprops \\ apply obs i
 
-zddOf kns (Ckw ags form) = trace ".commonKw" (disZ (zddOf kns (Ck ags form)) (zddOf kns (Ck ags (Neg form))))
+zddOf kns (Ckw ags form) = disZ (zddOf kns (Ck ags form)) (zddOf kns (Ck ags (Neg form)))
 
 zddOf kns@(KnSZ props _ _) (Announce ags form1 form2) =
-  trace ".announce" (impZ (zddOf kns form1) (restrictZ zdd2 (k,True))) where
+  impZ (zddOf kns form1) (restrictZ zdd2 (k,True)) where
     zdd2  = zddOf (announce kns ags form1) form2
     (P k) = freshp props
 
 zddOf kns@(KnSZ props _ _) (AnnounceW ags form1 form2) =
-  trace ".AnounceW" (ifthenelseZ (zddOf kns form1) zdd2a zdd2b) where
+  ifthenelseZ (zddOf kns form1) zdd2a zdd2b where
     zdd2a = restrictZ (zddOf (announce kns ags form1) form2) (k,True)
     zdd2b = restrictZ (zddOf (announce kns ags form1) form2) (k,False)
     (P k) = freshp props
 
-zddOf kns (PubAnnounce form1 form2) = trace ".pubannounce" (impZ (zddOf kns form1) newform2) where
+zddOf kns (PubAnnounce form1 form2) = impZ (zddOf kns form1) newform2 where
     newform2 = zddOf (pubAnnounce kns form1) form2
 
 zddOf kns (PubAnnounceW form1 form2) =
-  trace ".pubannounceW" (ifthenelseZ (zddOf kns form1) newform2a newform2b) where
+  ifthenelseZ (zddOf kns form1) newform2a newform2b where
     newform2a = zddOf (pubAnnounce kns form1) form2
     newform2b = zddOf (pubAnnounce kns (Neg form1)) form2
 
 zddOf _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
 
 validViaZdd :: KnowStruct -> Form -> Bool
-validViaZdd kns@(KnSZ _ lawzdd _) f = unsafePerformIO $ do 
-  let a = (existsSet [2] (var 3)) `imp` var 3
-  let b = (existsSetZ [2] (varZ 3)) `impZ` varZ 3
+validViaZdd kns@(KnSZ _ lawzdd _) f = unsafePerformIO $! do 
+  let a = (exists 2 (var 3)) `imp` var 3
+  let b = (existsZ 2 (varZ 3)) `impZ` varZ 3
+  let c = (varZ 1 `conZ` botZ) `impZ` (varZ 1 `disZ` topZ)
 
-  let c = (varZ 1) `impZ` (varZ 1)
-  
-  let d = (varZ 1) `conZ` (topZ) 
+  let x = neg (forall 2 (neg $ var 3)) `imp` (var 3)
+  let y = negZ (forallZ 2 (negZ $ varZ 3)) `impZ` (varZ 3)
 
-  let x = (forall 1 (var 3)) `imp` var 3
-  let y = (forallZ 1 (varZ 3)) `impZ` varZ 3
-
-  putStrLn ("basic check, 1&2 -> 1&2: " ++ show (c == topZ))
-  printZddInfo c "basic check"
+  --putStrLn ("basic check, 1&bot -> 1|top: " ++ show (c == topZ))
+  --printZddInfo c "basic check"
   putStrLn ("exists zdd equal to bdd: " ++ show ((a == top) == (b == topZ)))
-  printZddInfo y "exists zdd"
   putStrLn ("forall zdd equal to bdd: " ++ show ((x == top) == (y == topZ)))
-  printZddInfo y "forall zdd"
-  
-  let z = topZ == (zddOf kns f) `impZ` lawzdd
+  --putStrLn ("bdd exists and forall the same: " ++ show (a == x) ++ ", zdd exists and forall:" ++ show(b == y))
+  --printZddInfo ((negZ $ varZ 3) `impZ` (varZ 1)) "~3 ->1"--`impZ` varZ 1) "~3 -> 1"
+   
+  let z = topZ == lawzdd `impZ` (zddOf kns f) 
   return z
 
-
+convertTest :: KnowStruct -> Form -> Bool
+convertTest kns@(KnS _ law _) query = unsafePerformIO $ do
+  let q = createZddFromBdd (bddOf kns query)
+  let l = createZddFromBdd law
+  let r = l `impZ` q
+  printZddInfo q "convertionn result"
+  return (r == topZ)
 
 evalViaZdd :: KnowScene -> Form -> Bool
 evalViaZdd (kns@(KnSZ allprops _ obs),s) f = bool where
@@ -209,6 +212,7 @@ initZddVars :: [Int] -> IO()
 initZddVars vocab = do
   let v = initZddVarsWithInt vocab
   printZddInfo v "init!"
+  --portVars
   return ()
 
 prpToInt :: [Prp] -> [Int]

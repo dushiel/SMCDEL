@@ -34,7 +34,7 @@ main = do
     Left (lin,col) -> error ("Parse error in line " ++ show lin ++ ", column " ++ show col)
     Right (CheckInput vocabInts lawform obs jobs) -> do
       
-      let mykns = KnS (map P vocabInts) (boolBddOf lawform) (map (second (map P)) obs)
+      let mykns = KnS (map P vocabInts) (boolBddOf $! lawform) (map (second (map P)) obs)
       initZddVars vocabInts
       let myknsZ = KnSZ (map P vocabInts) (boolZddOf lawform) (map (second (map P)) obs)
       hPutStrLn outHandle $ "The law: " ++ ppForm lawform 
@@ -57,6 +57,7 @@ doJob outHandle True mykns myknsZ (ValidQ f) = do
 doJob outHandle False mykns myknsZ (ValidQ f) = do
   hPutStrLn outHandle $ "Is " ++ ppForm f ++ " valid on the given structure?"
   vividPutStrLn (show (validViaBdd mykns f) ++ "\n")
+  hPutStrLn outHandle ("Zdd coverter says: " ++ show (convertTest mykns f) ++ "\n\n")
   hPutStrLn outHandle ("Zdd builder says: " ++ show (validViaZdd myknsZ f) ++ "\n\n")
 doJob outHandle True mykns myknsZ (WhereQ f) = do
   hPutStrLn outHandle $ "At which states is $" ++ texForm (simplify f) ++ "$ true? $"
