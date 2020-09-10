@@ -181,10 +181,11 @@ validViaZdd kns@(KnSZ _ lawzdd _) f = unsafePerformIO $! do
   let x = neg (forall 2 (neg $ var 3)) `imp` (var 3)
   let y = negZ (forallZ 2 (negZ $ varZ 3)) `impZ` (varZ 3)
 
-  --putStrLn ("basic check, 1&bot -> 1|top: " ++ show (c == topZ))
+  putStrLn ("basic check of zdd, (1&bot) -> (1|top): " ++ show (c == topZ))
   --printZddInfo c "basic check"
-  putStrLn ("exists zdd equal to bdd: " ++ show ((a == top) == (b == topZ)))
-  putStrLn ("forall zdd equal to bdd: " ++ show ((x == top) == (y == topZ)))
+  putStrLn ("exists zdd equal to bdd, on (E2(3) -> 3): " ++ show ((a == top) == (b == topZ)))
+  putStrLn ("forall zdd equal to bdd: on (A2(3) -> 3)" ++ show ((x == top) == (y == topZ)))
+  putStrLn ("see validViaZdd in S5_CUDD.hs for precise implementation.\n")
   --putStrLn ("bdd exists and forall the same: " ++ show (a == x) ++ ", zdd exists and forall:" ++ show(b == y))
   --printZddInfo ((negZ $ varZ 3) `impZ` (varZ 1)) "~3 ->1"--`impZ` varZ 1) "~3 -> 1"
    
@@ -196,7 +197,7 @@ convertTest kns@(KnS _ law _) query = unsafePerformIO $ do
   let q = createZddFromBdd (bddOf kns query)
   let l = createZddFromBdd law
   let r = l `impZ` q
-  printZddInfo q "convertionn result"
+  --printZddInfo q "convertionn result"
   return (r == topZ)
 
 evalViaZdd :: KnowScene -> Form -> Bool

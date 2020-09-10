@@ -55,10 +55,10 @@ doJob outHandle True mykns myknsZ (ValidQ f) = do
   {-hPutStrLn outHandle (show (validViaBdd mykns f) ++ "\n")
   hPutStrLn outHandle ("Zdd says: " ++ show (validViaZddTest mykns f) ++ "\n\n")-}
 doJob outHandle False mykns myknsZ (ValidQ f) = do
-  hPutStrLn outHandle $ "Is " ++ ppForm f ++ " valid on the given structure?"
-  vividPutStrLn (show (validViaBdd mykns f) ++ "\n")
-  hPutStrLn outHandle ("Zdd coverter says: " ++ show (convertTest mykns f) ++ "\n\n")
-  hPutStrLn outHandle ("Zdd builder says: " ++ show (validViaZdd myknsZ f) ++ "\n\n")
+  hPutStrLn outHandle $ "Is " ++ ppForm f ++ " valid on the given structure?\n"
+  vividPutStrLn ("Bdd builder says: " ++ show (validViaBdd mykns f) ++ "\n")
+  hPutStrLn outHandle ("Zdd coverter says: " ++ show (convertTest mykns f) ++ "\n")
+  hPutStrLn outHandle ("Zdd builder says: " ++ show (validViaZdd myknsZ f) ++ "\n")
 doJob outHandle True mykns myknsZ (WhereQ f) = do
   hPutStrLn outHandle $ "At which states is $" ++ texForm (simplify f) ++ "$ true? $"
   {-let states = map tex (whereViaBdd mykns f)
