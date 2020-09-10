@@ -9,7 +9,7 @@ import SMCDEL.Language
 import System.IO.Unsafe
 import Debug.Trace
 
-boolBddOf :: Form -> Bdd
+boolBddOf :: Form -> Dd B 
 boolBddOf Top           = top
 boolBddOf Bot           = bot
 boolBddOf (PrpF (P n))  = var n
@@ -24,7 +24,7 @@ boolBddOf (Exists ps f) = boolBddOf (foldl singleExists f ps) where
   singleExists g p = Disj [ substit p Top g, substit p Bot g ]
 boolBddOf _             = error "boolBddOf failed: Not a boolean formula."
 
-data KnowStruct = KnS [Prp] !Bdd [(Agent,[Prp])] | KnSZ [Prp] !Zdd [(Agent,[Prp])] deriving (Eq,Show)
+data KnowStruct = KnS [Prp] !(Dd B) [(Agent,[Prp])] | KnSZ [Prp] !(Dd Z) [(Agent,[Prp])] deriving (Eq,Show)
 type KnState = [Prp]
 type KnowScene = (KnowStruct,KnState)
 
@@ -51,7 +51,7 @@ announce kns@(KnSZ props lawzdd obs) ags psi = KnSZ newprops newlawzdd newobs wh
   newlawzdd = con lawzdd (equ (varZ k) (zddOf kns psi))
   newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]
 
-bddOf :: KnowStruct -> Form -> Bdd
+bddOf :: KnowStruct -> Form -> Dd B 
 bddOf _   Top           = top
 bddOf _   Bot           = bot
 bddOf _   (PrpF (P n))  = var n
@@ -125,7 +125,7 @@ initZddVars vocab = do
 -------------- building
 
 
-boolZddOf :: Form -> Zdd
+boolZddOf :: Form -> Dd Z
 boolZddOf Top           = topZ
 boolZddOf Bot           = botZ
 boolZddOf (PrpF (P n))  = varZ n
@@ -140,7 +140,7 @@ boolZddOf (Exists ps f) = boolZddOf (foldl singleExists f ps) where
   singleExists g p = Disj [ substit p Top g, substit p Bot g ]
 boolZddOf _             = error "boolZddOf failed: Not a boolean formula."
 
-zddOf :: KnowStruct -> Form -> Zdd
+zddOf :: KnowStruct -> Form -> Dd Z
 zddOf _   Top           = topZ
 zddOf _   Bot           = botZ
 zddOf _   (PrpF (P n))  = varZ n

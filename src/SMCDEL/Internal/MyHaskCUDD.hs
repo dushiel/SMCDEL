@@ -1,6 +1,6 @@
 module SMCDEL.Internal.MyHaskCUDD (
   -- * Types
-  Bdd, Zdd,
+  Dd, B, Z,
   -- * Creation of new BDDs
   top, bot, var,
   -- * Combination and Manipulation of BDDs
@@ -21,105 +21,101 @@ import System.IO.Unsafe
 manager :: Cudd.Cudd.DdManager
 manager = Cudd.Cudd.cuddInit
 
-{-}
-newtype Dd x = ToDd (Cudd.Cudd.DdNode)
+
+newtype Dd x = ToDd (Cudd.Cudd.DdNode) deriving (Eq,Show)
 data B
 data Z
 
-bot2 :: Dd B 
-bot2 = ToDd (Cudd.Cudd.cuddReadLogicZero manager)
--}
+bot :: Dd B 
+bot = ToDd (Cudd.Cudd.cuddReadLogicZero manager)
+top :: Dd B
+top = ToDd (Cudd.Cudd.cuddReadOne manager)
+var :: Int -> Dd B
+var n = ToDd (Cudd.Cudd.cuddBddIthVar manager n)
 
-type Bdd =  Cudd.Cudd.DdNode
-bot :: Bdd
-bot =  Cudd.Cudd.cuddReadLogicZero manager
-top :: Bdd
-top =  Cudd.Cudd.cuddReadOne manager
-var :: Int -> Bdd
-var =  Cudd.Cudd.cuddBddIthVar manager
-
-newtype Zdd = ToZdd Cudd.Cudd.DdNode deriving (Eq,Show)
-topZ :: Zdd
-topZ = ToZdd (Cudd.Cudd.cuddZddReadOne manager)
-botZ :: Zdd
-botZ = ToZdd (Cudd.Cudd.cuddZddReadZero manager)
-varZ :: Int -> Zdd
-varZ i = ToZdd (Cudd.Cudd.cuddZddIthVar manager i)
+topZ :: Dd Z
+topZ = ToDd (Cudd.Cudd.cuddZddReadOne manager)
+botZ :: Dd Z
+botZ = ToDd (Cudd.Cudd.cuddZddReadZero manager)
+varZ :: Int -> Dd Z
+varZ n = ToDd (Cudd.Cudd.cuddZddIthVar manager n)
 
 -------------------------------------------------------------------------------------------
 class DdF a where
-  neg :: a -> a
-  con :: a -> a -> a
-  dis :: a -> a -> a
-  xor :: a -> a -> a
-  equ :: a -> a -> a
-  imp :: a -> a -> a
-  exists :: Int -> a -> a
-  forall :: Int -> a -> a
-  existsSet :: [Int] -> a -> a
-  forallSet :: [Int] -> a -> a
-  conSet :: [a] -> a
-  disSet :: [a] -> a
-  xorSet :: [a] -> a
-  ifthenelse :: a -> a -> a -> a
-  restrict :: a -> (Int,Bool) -> a
-  restrictSet :: a -> [(Int,Bool)] -> a
-  writeToDot :: a -> String -> IO()
-  printDdInfo :: a -> String -> IO()
+  neg :: Dd a -> Dd a
+  con :: Dd a -> Dd a -> Dd a
+  dis :: Dd a -> Dd a -> Dd a
+  xor :: Dd a -> Dd a -> Dd a
+  equ :: Dd a -> Dd a -> Dd a
+  imp :: Dd a -> Dd a -> Dd a
+  exists :: Int -> Dd a -> Dd a
+  forall :: Int -> Dd a -> Dd a
+  existsSet :: [Int] -> Dd a -> Dd a
+  forallSet :: [Int] -> Dd a -> Dd a
+  conSet :: [Dd a] -> Dd a
+  disSet :: [Dd a] -> Dd a
+  xorSet :: [Dd a] -> Dd a
+  ifthenelse :: Dd a -> Dd a -> Dd a -> Dd a
+  restrict :: Dd a -> (Int,Bool) -> Dd a
+  restrictSet :: Dd a -> [(Int,Bool)] -> Dd a
+  writeToDot :: Dd a -> String -> IO()
+  printDdInfo :: Dd a -> String -> IO()
 
 
 --
-instance DdF Cudd.Cudd.DdNode where
-  neg =  Cudd.Cudd.cuddNot manager
-  con =  Cudd.Cudd.cuddBddAnd manager
-  dis =  Cudd.Cudd.cuddBddOr manager
-  xor =  Cudd.Cudd.cuddBddXor manager
+instance DdF B where
+  neg (ToDd b) = ToDd $ Cudd.Cudd.cuddNot manager b
+  con (ToDd b1) (ToDd b2) = ToDd $ Cudd.Cudd.cuddBddAnd manager b1 b2
+  dis (ToDd b1) (ToDd b2) = ToDd $ Cudd.Cudd.cuddBddOr manager b1 b2
+  xor (ToDd b1) (ToDd b2) = ToDd $ Cudd.Cudd.cuddBddXor manager b1 b2
   equ a b = con (imp a b) (imp b a)
-  imp b1 b2 =  Cudd.Cudd.cuddBddIte manager b1 b2 top
-  ifthenelse =  Cudd.Cudd.cuddBddIte manager
-  exists n b =  Cudd.Cudd.cuddBddExistAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager [n])
-  forall n b =  Cudd.Cudd.cuddBddUnivAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager [n])
-  restrict b (n,bit) =  Cudd.Cudd.cuddBddLICompaction manager b res where
-    res = if bit then var n else neg (var n)
+  imp (ToDd b1) (ToDd b2) = ToDd $ Cudd.Cudd.cuddBddIte manager b1 b2 t where
+    ToDd t = top 
+  ifthenelse (ToDd b1) (ToDd b2) (ToDd b3) = ToDd $ Cudd.Cudd.cuddBddIte manager b1 b2 b3
+  exists n (ToDd b) = ToDd $ Cudd.Cudd.cuddBddExistAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager [n])
+  forall n (ToDd b) = ToDd $ Cudd.Cudd.cuddBddUnivAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager [n])
+  restrict (ToDd b) (n,bit) = ToDd $ Cudd.Cudd.cuddBddLICompaction manager b res where
+    ToDd res = if bit then var n else neg (var n)
 
   --set versions
   existsSet [] b = b
-  existsSet ns b =  Cudd.Cudd.cuddBddExistAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager ns)
+  existsSet ns (ToDd b) = ToDd $ Cudd.Cudd.cuddBddExistAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager ns)
   forallSet [] b = b
-  forallSet ns b =  Cudd.Cudd.cuddBddUnivAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager ns)
+  forallSet ns (ToDd b) = ToDd $ Cudd.Cudd.cuddBddUnivAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager ns)
   conSet [] = top
   conSet (b:bs) = foldl con b bs
   disSet [] = bot
   disSet (b:bs) = foldl dis b bs
   xorSet [] = bot
   xorSet (b:bs) = foldl xor b bs
-  restrictSet b bits =  Cudd.Cudd.cuddBddLICompaction manager b res where
-    res = conSet $ map (\(n,bit) -> if bit then var n else neg (var n)) bits
+  restrictSet (ToDd b) bits = ToDd $ Cudd.Cudd.cuddBddLICompaction manager b res where
+    ToDd res = conSet $ map (\(n,bit) -> if bit then var n else neg (var n)) bits
   
 
   --helper functions
-  printDdInfo bdd str = do
+  printDdInfo (ToDd b) str = do
     putStrLn str
-    Cudd.Cudd.cuddPrintDdInfo manager bdd
-  writeToDot bdd f = Cudd.Cudd.cuddBddToDot manager bdd f
+    Cudd.Cudd.cuddPrintDdInfo manager b
+    return ()
+  writeToDot (ToDd b) f = Cudd.Cudd.cuddBddToDot manager b f
 
 
-instance DdF Zdd where
+instance DdF Z where
   neg z = topZ `differenceZ` z
-  con (ToZdd z1) (ToZdd z2) = ToZdd (Cudd.Cudd.cuddZddIntersect manager z1 z2)
-  dis (ToZdd z1) (ToZdd z2) = ToZdd (Cudd.Cudd.cuddZddUnion manager z1 z2)
+  con (ToDd z1) (ToDd z2) = ToDd (Cudd.Cudd.cuddZddIntersect manager z1 z2)
+  dis (ToDd z1) (ToDd z2) = ToDd (Cudd.Cudd.cuddZddUnion manager z1 z2)
   xor z1 z2 =  a `con` b where
     a = differenceZ z1 z2 
     b = differenceZ z2 z1
   equ a b = con (imp a b) (imp b a)
-  imp (ToZdd z1) (ToZdd z2) = ToZdd $ Cudd.Cudd.cuddZddITE manager z1 z2 t where
-    ToZdd t = topZ
-  ifthenelse (ToZdd x) (ToZdd y) (ToZdd z) = ToZdd (Cudd.Cudd.cuddZddITE manager x y z)
+  imp (ToDd z1) (ToDd z2) = ToDd $ Cudd.Cudd.cuddZddITE manager z1 z2 t where
+    ToDd t = topZ
+  ifthenelse (ToDd x) (ToDd y) (ToDd z) = ToDd (Cudd.Cudd.cuddZddITE manager x y z)
   exists n zdd =  neg $ forall n $ neg $ zdd
-  forall n (ToZdd zdd) = x `dis` y where
-    x = ToZdd $ Cudd.Cudd.cuddZddSub0 manager zdd n
-    y = ToZdd $ Cudd.Cudd.cuddZddChange manager (Cudd.Cudd.cuddZddSub1 manager zdd n) n
-  restrict (ToZdd zdd) (n,bit) =  ToZdd $ if bit 
+  forall n (ToDd zdd) = x `dis` y where
+    x = ToDd $ Cudd.Cudd.cuddZddSub0 manager zdd n
+    y = ToDd $ Cudd.Cudd.cuddZddChange manager (Cudd.Cudd.cuddZddSub1 manager zdd n) n
+  restrict (ToDd zdd) (n,bit) =  ToDd $ if bit 
     then Cudd.Cudd.cuddZddChange manager (Cudd.Cudd.cuddZddSub1 manager zdd n) n
   else Cudd.Cudd.cuddZddSub0 manager zdd n
 
@@ -147,39 +143,40 @@ instance DdF Zdd where
   
 
   --helper functions
-  printDdInfo (ToZdd zdd) str = do
+  printDdInfo (ToDd zdd) str = do
     putStrLn str
     Cudd.Cudd.cuddPrintDdInfo manager zdd
-  writeToDot (ToZdd zdd) f = Cudd.Cudd.cuddZddToDot manager zdd f
+    return ()
+  writeToDot (ToDd zdd) f = Cudd.Cudd.cuddZddToDot manager zdd f
 
-gfp :: (Bdd -> Bdd) -> Bdd
+gfp :: (Dd B -> Dd B) -> Dd B
 gfp operator = gfpLoop top where
-  gfpLoop :: Bdd -> Bdd
+  gfpLoop :: Dd B -> Dd B
   gfpLoop current =
     if current == operator current
       then current
       else gfpLoop (operator current)
 
-gfpZ :: (Zdd -> Zdd) -> Zdd
+gfpZ :: (Dd Z -> Dd Z) -> Dd Z
 gfpZ operator = gfpLoop topZ where
-  gfpLoop :: Zdd -> Zdd
+  gfpLoop :: Dd Z -> Dd Z
   gfpLoop current =
     if current == operator current
       then current
       else gfpLoop (operator current)
 
 
-differenceZ :: Zdd -> Zdd -> Zdd
-differenceZ (ToZdd x) (ToZdd y) = ToZdd (Cudd.Cudd.cuddZddDiff manager x y)
+differenceZ :: Dd Z -> Dd Z -> Dd Z
+differenceZ (ToDd x) (ToDd y) = ToDd $ Cudd.Cudd.cuddZddDiff manager x y
 
 
-initZddVarsWithInt :: [Int] -> Zdd
+initZddVarsWithInt :: [Int] -> Dd Z
 initZddVarsWithInt [] = error "initialising empty vocabulary list of zdd vars"
 initZddVarsWithInt (n: []) = varZ n 
 initZddVarsWithInt (n: ns) = varZ n `dis` initZddVarsWithInt ns
 
-createZddFromBdd :: Bdd -> Zdd
-createZddFromBdd bdd = (ToZdd (Cudd.Cudd.cuddZddPortFromBdd manager bdd))
+createZddFromBdd :: Dd B -> Dd Z
+createZddFromBdd (ToDd b) = ToDd (Cudd.Cudd.cuddZddPortFromBdd manager b)
 
 portVars :: IO()
 portVars = Cudd.Cudd.cuddZddVarFromBdd manager
