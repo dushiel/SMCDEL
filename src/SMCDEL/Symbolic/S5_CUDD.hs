@@ -8,6 +8,15 @@ import SMCDEL.Internal.Help (apply)
 import SMCDEL.Language
 import System.IO.Unsafe
 import Debug.Trace
+import Data.List ((\\),delete,dropWhile,dropWhileEnd,intercalate,intersect,nub,sort)
+import Data.Tagged
+import System.IO (readFile)
+import SMCDEL.Internal.TexDisplay
+import System.Process (runInteractiveCommand)
+import System.IO (hPutStr, hGetContents, hClose)
+import Data.Char (isSpace)
+import Text.RE.Tools.Grep
+import Control.DeepSeq (rnf)
 
 boolBddOf :: Form -> Dd B 
 boolBddOf Top           = top
@@ -117,6 +126,7 @@ convertTest kns@(KnS _ law _) query = unsafePerformIO $ do
 
 initZddVars :: [Int] -> IO()
 initZddVars vocab = do
+  --_ <- return rnf $! initZddVarsWithInt vocab
   let v = initZddVarsWithInt vocab
   printDdInfo v "init!"
   return ()
@@ -202,11 +212,11 @@ validViaZdd kns@(KnSZ _ lawzdd _) f = unsafePerformIO $! do
   let x = neg (forall 2 (neg $ var 3)) `imp` (var 3)
   let y = neg (forall 2 (neg $ varZ 3)) `imp` (varZ 3)
 
-  putStrLn ("basic check of zdd, (1&bot) -> (1|top): " ++ show (c == topZ))
+  --putStrLn ("basic check of zdd tautology, (1&bot) -> (1|top): " ++ show (c == topZ))
   --printZddInfo c "basic check"
-  putStrLn ("exists zdd equal to bdd, on (E2(3) -> 3): " ++ show ((a == top) == (b == topZ)))
-  putStrLn ("forall zdd equal to bdd: on (A2(3) -> 3)" ++ show ((x == top) == (y == topZ)))
-  putStrLn ("see validViaZdd in S5_CUDD.hs for precise implementation.\n")
+  --putStrLn ("exists zdd equal to bdd, on (E2(3) -> 3): " ++ show ((a == top) == (b == topZ)))
+  --putStrLn ("forall zdd equal to bdd: on (A2(3) -> 3)" ++ show ((x == top) == (y == topZ)))
+  --putStrLn ("see validViaZdd in S5_CUDD.hs for precise implementation.\n")
   --putStrLn ("bdd exists and forall the same: " ++ show (a == x) ++ ", zdd exists and forall:" ++ show(b == y))
   --printZddInfo ((negZ $ varZ 3) `impZ` (varZ 1)) "~3 ->1"--`impZ` varZ 1) "~3 -> 1"
    
@@ -221,3 +231,63 @@ evalViaZdd (kns@(KnSZ allprops _ obs),s) f = bool where
   z    = restrictSet (zddOf kns f) list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
 
+--------------------------- Texable!
+
+texDd :: Dd Z -> String --future needs myshow (texDdWith) to be added, it decides what the variable names are
+texDd d = unsafePerformIO $ do
+  (i,o,_,_) <- runInteractiveCommand "dot2tex --figpreamble=\"\\huge\" --figonly -traw"
+  hPutStr i (returnDot d ++ "\n")
+  hClose i
+  result <- hGetContents o
+  return $ dropWhileEnd isSpace $ dropWhile isSpace result
+
+--texBDD :: Bdd -> String
+--texBDD = texBddWith show
+
+--newtype WrapBdd = Wrap Bdd
+
+--instance TexAble WrapBdd where
+--  tex (Wrap b) = texBDD b
+
+instance TexAble KnowStruct where
+  tex (KnS props lawbdd obs) = concat
+    [ " \\left( \n"
+    , tex props ++ ", "
+    , " \\begin{array}{l} \\scalebox{0.4}{"
+    --, texDd lawbdd
+    , "} \\end{array}\n "
+    , ", \\begin{array}{l}\n"
+    , intercalate " \\\\\n " (map (\(_,os) -> tex os) obs)
+    , "\\end{array}\n"
+    , " \\right)" ]
+  tex (KnSZ props lawzdd obs) = concat
+    [ " \\left( \n"
+    , tex props ++ ", "
+    , " \\begin{array}{l} \\scalebox{0.4}{"
+    , texDd lawzdd
+    , "} \\end{array}\n "
+    , ", \\begin{array}{l}\n"
+    , intercalate " \\\\\n " (map (\(_,os) -> tex os) obs)
+    , "\\end{array}\n"
+    , " \\right)" ]
+
+
+instance TexAble KnowScene where
+  tex (kns, state) = tex kns ++ " , " ++ tex state
+{-}
+instance (Ord a, Show a, Dd a) => TexAble (ViaDot a) where
+  tex (ViaDot x) = unsafePerformIO $
+    withSystemTempDirectory "smcdel" $ \tmpdir -> do
+      ddToDot x (tmpdir ++ "/temp.dot")
+      runAndWait $ "dot2tex --figonly -ftikz -traw -p --autosize -w --usepdflatex "++tmpdir++"/temp.dot | sed '/^$/d' > "++tmpdir++"/temp.tex;"
+      readFile (tmpdir ++ "/temp.tex")
+  texTo (ViaDot x) filename = do
+    --_ <- ddToDot x (filename ++ ".dot")
+    runAndWait $ "dot2tex --figonly -ftikz -traw -p --autosize -w --usepdflatex "++filename++".dot | sed '/^$/d' > "++filename++".tex;"
+  texDocumentTo (ViaDot x) filename = do
+    --_ <- ddToDot x (filename ++ ".dot")
+    runAndWait $ "dot2tex -ftikz -traw -p --autosize -w --usepdflatex "++filename++".dot -o "++filename++".tex;"
+-}
+
+--format :: String -> String
+--format a = a

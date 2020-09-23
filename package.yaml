@@ -37,6 +37,8 @@ library:
     - temporary
     - text
     - time
+    - regex
+    - deepseq
 
 executables:
   smcdel:

@@ -36,10 +36,14 @@ main = do
       
       let mykns = KnS (map P vocabInts) (boolBddOf $! lawform) (map (second (map P)) obs)
       initZddVars vocabInts
-      let myknsZ = KnSZ (map P vocabInts) (boolZddOf lawform) (map (second (map P)) obs)
+      let myknsZ = KnSZ (map P vocabInts) (boolZddOf $! lawform) (map (second (map P)) obs)
       hPutStrLn outHandle $ "The law: " ++ ppForm lawform 
-      
+  
       mapM_ (doJob outHandle texMode mykns myknsZ) jobs
+      when texMode $
+        hPutStrLn outHandle $ unlines
+          [ "\\section{Given Knowledge Structure}", "\\[ (\\mathcal{F},s) = (" ++ tex ((myknsZ,[])::KnowScene) ++ ") \\]", "\\section{Results}" ]
+      
       when texMode $ hPutStrLn outHandle texEnd
       when showMode $ do
         hClose outHandle
@@ -52,13 +56,14 @@ main = do
 doJob :: Handle -> Bool -> KnowStruct -> KnowStruct -> Job -> IO ()
 doJob outHandle True mykns myknsZ (ValidQ f) = do
   hPutStrLn outHandle $ "Is $" ++ texForm (simplify f) ++ "$ valid on $\\mathcal{F}$?"
-  {-hPutStrLn outHandle (show (validViaBdd mykns f) ++ "\n")
-  hPutStrLn outHandle ("Zdd says: " ++ show (validViaZddTest mykns f) ++ "\n\n")-}
+  hPutStrLn outHandle (show (validViaBdd mykns f) ++ "\n")
+  hPutStrLn outHandle ("Zdd coverter says: " ++ show (convertTest mykns f) ++ "\n")
+  hPutStrLn outHandle ("Zdd builder says: " ++ show (validViaZdd myknsZ f) ++ "\n")
 doJob outHandle False mykns myknsZ (ValidQ f) = do
   hPutStrLn outHandle $ "Is " ++ ppForm f ++ " valid on the given structure?\n"
   vividPutStrLn ("Bdd builder says: " ++ show (validViaBdd mykns f) ++ "\n")
-  hPutStrLn outHandle ("Zdd coverter says: " ++ show (convertTest mykns f) ++ "\n")
-  hPutStrLn outHandle ("Zdd builder says: " ++ show (validViaZdd myknsZ f) ++ "\n")
+  vividPutStrLn ("Zdd coverter says: " ++ show (convertTest mykns f) ++ "\n")
+  vividPutStrLn ("Zdd builder says: " ++ show (validViaZdd myknsZ f) ++ "\n")
 doJob outHandle True mykns myknsZ (WhereQ f) = do
   hPutStrLn outHandle $ "At which states is $" ++ texForm (simplify f) ++ "$ true? $"
   {-let states = map tex (whereViaBdd mykns f)

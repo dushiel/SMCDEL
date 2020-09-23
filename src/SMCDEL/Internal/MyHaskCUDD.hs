@@ -7,20 +7,22 @@ module SMCDEL.Internal.MyHaskCUDD (
   neg, con, dis, imp, equ, xor, conSet, disSet, xorSet,
   exists, forall, forallSet, existsSet,
   restrict, restrictSet,
-  ifthenelse,
+  ifthenelse, returnDot,
   gfp, 
-  -- * Zdd functionalities
+  -- * extra Zdd functionalities
   gfpZ, writeToDot, printDdInfo, differenceZ, portVars, initZddVarsWithInt, topZ, varZ, botZ,
   createZddFromBdd
 ) where
 
 import qualified Cudd.Cudd
 import System.IO.Unsafe
+import System.IO.Temp
+
+
 
 
 manager :: Cudd.Cudd.DdManager
 manager = Cudd.Cudd.cuddInit
-
 
 newtype Dd x = ToDd (Cudd.Cudd.DdNode) deriving (Eq,Show)
 data B
@@ -41,6 +43,7 @@ varZ :: Int -> Dd Z
 varZ n = ToDd (Cudd.Cudd.cuddZddIthVar manager n)
 
 -------------------------------------------------------------------------------------------
+
 class DdF a where
   neg :: Dd a -> Dd a
   con :: Dd a -> Dd a -> Dd a
@@ -60,6 +63,11 @@ class DdF a where
   restrictSet :: Dd a -> [(Int,Bool)] -> Dd a
   writeToDot :: Dd a -> String -> IO()
   printDdInfo :: Dd a -> String -> IO()
+  returnDot :: Dd a -> String
+  returnDot d = unsafePerformIO $
+    withSystemTempDirectory "smcdel" $ \tmpdir -> do
+      writeToDot d (tmpdir ++ "/temp.dot")
+      readFile (tmpdir ++ "/temp.dot")
 
 
 --
@@ -148,6 +156,11 @@ instance DdF Z where
     Cudd.Cudd.cuddPrintDdInfo manager zdd
     return ()
   writeToDot (ToDd zdd) f = Cudd.Cudd.cuddZddToDot manager zdd f
+
+
+
+-------- 
+
 
 gfp :: (Dd B -> Dd B) -> Dd B
 gfp operator = gfpLoop top where
