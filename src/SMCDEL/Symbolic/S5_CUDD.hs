@@ -15,8 +15,12 @@ import SMCDEL.Internal.TexDisplay
 import System.Process (runInteractiveCommand)
 import System.IO (hPutStr, hGetContents, hClose)
 import Data.Char (isSpace)
+import Data.GraphViz (parseDotGraphLiberally) 
+import Data.GraphViz.Types.Graph
 import Text.RE.Tools.Grep
 import Control.DeepSeq (rnf)
+import Data.Typeable
+import Data.Text.Lazy (pack)
 
 boolBddOf :: Form -> Dd B 
 boolBddOf Top           = top
@@ -126,11 +130,10 @@ convertTest kns@(KnS _ law _) query = unsafePerformIO $ do
 
 initZddVars :: [Int] -> IO()
 initZddVars vocab = do
-  --_ <- return rnf $! initZddVarsWithInt vocab
+  --_ <- return $! rnf (initZddVarsWithInt vocab)
   let v = initZddVarsWithInt vocab
-  printDdInfo v "init!"
+  _ <- return $! rnf (forceCheckDd v)
   return ()
-
 
 -------------- building
 
@@ -205,12 +208,12 @@ zddOf _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
 
 validViaZdd :: KnowStruct -> Form -> Bool
 validViaZdd kns@(KnSZ _ lawzdd _) f = unsafePerformIO $! do 
-  let a = (exists 2 (var 3)) `imp` var 3
-  let b = (exists 2 (varZ 3)) `imp` varZ 3
+  let a = exists 2 (var 3) `imp` var 3
+  let b = exists 2 (varZ 3) `imp` varZ 3
   let c = (varZ 1 `con` botZ) `imp` (varZ 1 `dis` topZ)
 
-  let x = neg (forall 2 (neg $ var 3)) `imp` (var 3)
-  let y = neg (forall 2 (neg $ varZ 3)) `imp` (varZ 3)
+  let x = neg (forall 2 (neg $ var 3)) `imp` var 3
+  let y = neg (forall 2 (neg $ varZ 3)) `imp` varZ 3
 
   --putStrLn ("basic check of zdd tautology, (1&bot) -> (1|top): " ++ show (c == topZ))
   --printZddInfo c "basic check"
@@ -220,7 +223,7 @@ validViaZdd kns@(KnSZ _ lawzdd _) f = unsafePerformIO $! do
   --putStrLn ("bdd exists and forall the same: " ++ show (a == x) ++ ", zdd exists and forall:" ++ show(b == y))
   --printZddInfo ((negZ $ varZ 3) `impZ` (varZ 1)) "~3 ->1"--`impZ` varZ 1) "~3 -> 1"
    
-  let z = topZ == lawzdd `imp` (zddOf kns f) 
+  let z = topZ == lawzdd `imp` zddOf kns f
   return z
 
 evalViaZdd :: KnowScene -> Form -> Bool
@@ -233,8 +236,18 @@ evalViaZdd (kns@(KnSZ allprops _ obs),s) f = bool where
 
 --------------------------- Texable!
 
-texDd :: Dd Z -> String --future needs myshow (texDdWith) to be added, it decides what the variable names are
-texDd d = unsafePerformIO $ do
+texDdB :: Dd B -> String --future needs myshow (texDdWith) to be added, it decides what the variable names are
+texDdB d = unsafePerformIO $ do
+  (i,o,_,_) <- runInteractiveCommand "dot2tex --figpreamble=\"\\huge\" --figonly -traw"
+  hPutStr i (returnDot d ++ "\n")
+  --let x = pack $ returnDot d
+  --let y = parseDotGraphLiberally x
+  hClose i
+  result <- hGetContents o
+  return $ dropWhileEnd isSpace $ dropWhile isSpace result
+
+texDdZ :: Dd Z -> String
+texDdZ d = unsafePerformIO $ do
   (i,o,_,_) <- runInteractiveCommand "dot2tex --figpreamble=\"\\huge\" --figonly -traw"
   hPutStr i (returnDot d ++ "\n")
   hClose i
@@ -254,7 +267,7 @@ instance TexAble KnowStruct where
     [ " \\left( \n"
     , tex props ++ ", "
     , " \\begin{array}{l} \\scalebox{0.4}{"
-    --, texDd lawbdd
+    , texDdB lawbdd
     , "} \\end{array}\n "
     , ", \\begin{array}{l}\n"
     , intercalate " \\\\\n " (map (\(_,os) -> tex os) obs)
@@ -264,7 +277,7 @@ instance TexAble KnowStruct where
     [ " \\left( \n"
     , tex props ++ ", "
     , " \\begin{array}{l} \\scalebox{0.4}{"
-    , texDd lawzdd
+    , texDdZ lawzdd
     , "} \\end{array}\n "
     , ", \\begin{array}{l}\n"
     , intercalate " \\\\\n " (map (\(_,os) -> tex os) obs)
@@ -274,20 +287,72 @@ instance TexAble KnowStruct where
 
 instance TexAble KnowScene where
   tex (kns, state) = tex kns ++ " , " ++ tex state
-{-}
-instance (Ord a, Show a, Dd a) => TexAble (ViaDot a) where
-  tex (ViaDot x) = unsafePerformIO $
-    withSystemTempDirectory "smcdel" $ \tmpdir -> do
-      ddToDot x (tmpdir ++ "/temp.dot")
-      runAndWait $ "dot2tex --figonly -ftikz -traw -p --autosize -w --usepdflatex "++tmpdir++"/temp.dot | sed '/^$/d' > "++tmpdir++"/temp.tex;"
-      readFile (tmpdir ++ "/temp.tex")
-  texTo (ViaDot x) filename = do
-    --_ <- ddToDot x (filename ++ ".dot")
-    runAndWait $ "dot2tex --figonly -ftikz -traw -p --autosize -w --usepdflatex "++filename++".dot | sed '/^$/d' > "++filename++".tex;"
-  texDocumentTo (ViaDot x) filename = do
-    --_ <- ddToDot x (filename ++ ".dot")
-    runAndWait $ "dot2tex -ftikz -traw -p --autosize -w --usepdflatex "++filename++".dot -o "++filename++".tex;"
--}
 
---format :: String -> String
---format a = a
+
+{-
+load in the dot file/string given by dump dot, with: format :: String -> String
+
+
+change list:
+-remove strict, only digraph
+-remove label from rank
+-give nodes the labels
+-check when and why some nodes do not have boundaries (edge = invis)
+-make the dotted lines go to Bot (new node)
+-remove edge [dir = none];
+-probably remove size = "7.5,10", center = true;
+
+what does x do?:
+- " 2 " -> " 3 " -> "CONST NODES"; 
+- strict
+- the first top node, does it have a purpose?
+
+
+
+example from correct to current:
+
+strict digraph g {
+n0 [label="2",shape="circle"];
+n0 -> Top;
+n0 -> n1 [style=dashed];
+n1 [label="3",shape="circle"];
+n1 -> Top;
+n1 -> Bot [style=dashed];
+Bot [label="0",shape="box"];
+Top [label="1",shape="box"];
+{ rank=same; n0 }
+{ rank=same; n1 }
+}
+
+
+digraph "DD" {
+size = "7.5,10"
+center = true;
+edge [dir = none];
+{ node [shape = plaintext];
+  edge [style = invis];
+  "CONST NODES" [style = invis];
+" 2 " -> " 3 " -> "CONST NODES"; 
+}
+{ rank = same; node [shape = box]; edge [style = invis];
+"F0"; }
+{ rank = same; " 2 ";
+"0x30b";
+}
+{ rank = same; " 3 ";
+"0x30a";
+}
+{ rank = same; "CONST NODES";
+{ node [shape = box]; "0x2da";
+}
+}
+"F0" -> "0x30b" [style = solid];
+"0x30b" -> "0x2da";
+"0x30b" -> "0x30a" [style = dashed];
+"0x30a" -> "0x2da";
+"0x30a" -> "0x2da" [style = dotted];
+"0x2da" [label = "1"];
+}
+
+
+-}

@@ -21,7 +21,6 @@ import SMCDEL.Symbolic.S5_CUDD
 
 main :: IO ()
 main = do
-  putStrLn "Hello, World!"
   (input,options) <- getInputAndSettings
   let showMode = "-show" `elem` options
   let texMode = "-tex" `elem` options || showMode
@@ -39,11 +38,11 @@ main = do
       let myknsZ = KnSZ (map P vocabInts) (boolZddOf $! lawform) (map (second (map P)) obs)
       hPutStrLn outHandle $ "The law: " ++ ppForm lawform 
   
-      mapM_ (doJob outHandle texMode mykns myknsZ) jobs
       when texMode $
         hPutStrLn outHandle $ unlines
-          [ "\\section{Given Knowledge Structure}", "\\[ (\\mathcal{F},s) = (" ++ tex ((myknsZ,[])::KnowScene) ++ ") \\]", "\\section{Results}" ]
-      
+          [ "\\section{Given Knowledge Structure}","knowledge structure with Bdd:\\", "\\[ (\\mathcal{F},s) = (" ++ tex ((mykns,[])::KnowScene) ++ ") \\]","knowledge structure with Zdd:\\","\\[ (\\mathcal{F},s) = (" ++ tex ((myknsZ,[])::KnowScene) ++ ") \\]", "\\section{Results}" ]
+      mapM_ (doJob outHandle texMode mykns myknsZ) jobs
+
       when texMode $ hPutStrLn outHandle texEnd
       when showMode $ do
         hClose outHandle
@@ -55,8 +54,8 @@ main = do
 
 doJob :: Handle -> Bool -> KnowStruct -> KnowStruct -> Job -> IO ()
 doJob outHandle True mykns myknsZ (ValidQ f) = do
-  hPutStrLn outHandle $ "Is $" ++ texForm (simplify f) ++ "$ valid on $\\mathcal{F}$?"
-  hPutStrLn outHandle (show (validViaBdd mykns f) ++ "\n")
+  hPutStrLn outHandle $ "Is $" ++ texForm (simplify f) ++ "$ valid on $\\mathcal{F}$?\n"
+  hPutStrLn outHandle ("Bdd builder says: " ++ show (validViaBdd mykns f) ++ "\n")
   hPutStrLn outHandle ("Zdd coverter says: " ++ show (convertTest mykns f) ++ "\n")
   hPutStrLn outHandle ("Zdd builder says: " ++ show (validViaZdd myknsZ f) ++ "\n")
 doJob outHandle False mykns myknsZ (ValidQ f) = do

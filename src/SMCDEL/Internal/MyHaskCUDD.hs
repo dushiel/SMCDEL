@@ -11,7 +11,7 @@ module SMCDEL.Internal.MyHaskCUDD (
   gfp, 
   -- * extra Zdd functionalities
   gfpZ, writeToDot, printDdInfo, differenceZ, portVars, initZddVarsWithInt, topZ, varZ, botZ,
-  createZddFromBdd
+  createZddFromBdd, forceCheckDd
 ) where
 
 import qualified Cudd.Cudd
@@ -24,7 +24,7 @@ import System.IO.Temp
 manager :: Cudd.Cudd.DdManager
 manager = Cudd.Cudd.cuddInit
 
-newtype Dd x = ToDd (Cudd.Cudd.DdNode) deriving (Eq,Show)
+newtype Dd x = ToDd Cudd.Cudd.DdNode deriving (Eq,Show)
 data B
 data Z
 
@@ -33,14 +33,14 @@ bot = ToDd (Cudd.Cudd.cuddReadLogicZero manager)
 top :: Dd B
 top = ToDd (Cudd.Cudd.cuddReadOne manager)
 var :: Int -> Dd B
-var n = ToDd (Cudd.Cudd.cuddBddIthVar manager n)
+var n = ToDd (Cudd.Cudd.cuddBddIthVar manager (n-1))
 
 topZ :: Dd Z
 topZ = ToDd (Cudd.Cudd.cuddZddReadOne manager)
 botZ :: Dd Z
 botZ = ToDd (Cudd.Cudd.cuddZddReadZero manager)
 varZ :: Int -> Dd Z
-varZ n = ToDd (Cudd.Cudd.cuddZddIthVar manager n)
+varZ n = ToDd (Cudd.Cudd.cuddZddIthVar manager (n-1))
 
 -------------------------------------------------------------------------------------------
 
@@ -64,11 +64,17 @@ class DdF a where
   writeToDot :: Dd a -> String -> IO()
   printDdInfo :: Dd a -> String -> IO()
   returnDot :: Dd a -> String
-  returnDot d = unsafePerformIO $
+  returnDot d = unsafePerformIO $ do
+    writeToDot d "hellobdd.dot"
+    readFile "hellobdd.dot"
+    {-withSystemTempDirectory "smcdel" $ \tmpdir -> do
+      writeToDot d (tmpdir ++ "/temp.dot")
+      readFile (tmpdir ++ "/temp.dot")-}
+  forceCheckDd :: Dd a -> String --really ugly fix to ensure evaluation of dd
+  forceCheckDd d = unsafePerformIO $! do
     withSystemTempDirectory "smcdel" $ \tmpdir -> do
       writeToDot d (tmpdir ++ "/temp.dot")
       readFile (tmpdir ++ "/temp.dot")
-
 
 --
 instance DdF B where
@@ -105,7 +111,7 @@ instance DdF B where
     putStrLn str
     Cudd.Cudd.cuddPrintDdInfo manager b
     return ()
-  writeToDot (ToDd b) f = Cudd.Cudd.cuddBddToDot manager b f
+  writeToDot (ToDd b) = Cudd.Cudd.cuddBddToDot manager b
 
 
 instance DdF Z where
@@ -119,7 +125,7 @@ instance DdF Z where
   imp (ToDd z1) (ToDd z2) = ToDd $ Cudd.Cudd.cuddZddITE manager z1 z2 t where
     ToDd t = topZ
   ifthenelse (ToDd x) (ToDd y) (ToDd z) = ToDd (Cudd.Cudd.cuddZddITE manager x y z)
-  exists n zdd =  neg $ forall n $ neg $ zdd
+  exists n zdd =  neg $ forall n $ neg zdd
   forall n (ToDd zdd) = x `dis` y where
     x = ToDd $ Cudd.Cudd.cuddZddSub0 manager zdd n
     y = ToDd $ Cudd.Cudd.cuddZddChange manager (Cudd.Cudd.cuddZddSub1 manager zdd n) n
@@ -146,7 +152,7 @@ instance DdF Z where
   xorSet [z] = z
   xorSet (z:zs) = foldl xor z zs
   restrictSet _ [] = error "restricting with empty list"
-  restrictSet zdd (n : []) = restrict zdd n
+  restrictSet zdd [n] = restrict zdd n
   restrictSet zdd (n : ns) = restrictSet (restrict zdd n) ns
   
 
@@ -155,7 +161,7 @@ instance DdF Z where
     putStrLn str
     Cudd.Cudd.cuddPrintDdInfo manager zdd
     return ()
-  writeToDot (ToDd zdd) f = Cudd.Cudd.cuddZddToDot manager zdd f
+  writeToDot (ToDd zdd) = Cudd.Cudd.cuddZddToDot manager zdd
 
 
 
@@ -185,7 +191,7 @@ differenceZ (ToDd x) (ToDd y) = ToDd $ Cudd.Cudd.cuddZddDiff manager x y
 
 initZddVarsWithInt :: [Int] -> Dd Z
 initZddVarsWithInt [] = error "initialising empty vocabulary list of zdd vars"
-initZddVarsWithInt (n: []) = varZ n 
+initZddVarsWithInt [n] = varZ n 
 initZddVarsWithInt (n: ns) = varZ n `dis` initZddVarsWithInt ns
 
 createZddFromBdd :: Dd B -> Dd Z
