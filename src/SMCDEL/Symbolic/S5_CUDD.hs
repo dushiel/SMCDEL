@@ -215,7 +215,80 @@ evalViaZdd (kns@(KnSZ allprops _ obs),s) f = bool where
   z    = restrictSet (zddOf kns f) list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
 
---------------------------- Texable!
+
+--------------Debugging!
+
+giveBasicZddTex :: String
+giveBasicZddTex = concat [
+  "Basic ZDD functions in tree form, see S5\\_CUDD.giveBasicZddTex for implementation.\\\\ \n"
+  ,as, ": \\\\ \\[", giveBddTex a, "\\] \\\\ \n"
+  ,bs, ": \\\\ \\[", giveZddTex b, "\\] \\\\ \n"
+  --,cs, ": \\\\ \\[", giveZddTex c, "\\] \\\\ \n"
+  --,ds, ": \\\\ \\[", giveZddTex d, "\\] \\\\ \n"
+  ,es, ": \\\\ \\[", giveZddTex e, "\\] \\\\ \n"
+  ,fs, ": \\\\ \\[", giveZddTex f, "\\] \\\\ \n"
+  --,gs, ": \\\\ \\[", giveZddTex g, "\\] \\\\ \n"
+  --,hs, ": \\\\ \\[", giveZddTex h, "\\] \\\\ \n"
+  --,is, ": \\\\ \\[", giveZddTex i, "\\] \\\\ \n"
+  --
+  -- add comparisonTestZddVsBdd here for comparing evaluations
+  --, comparisonTestZddVsBdd
+  --
+  ] where
+    --for zdd use topZ, botZ and varZ instead
+    --
+    --cudd printing of trees has some quirks:
+    --it has 3 lines: solid (true), dashed(false), dotted(straight to zero, i think)
+    --the uppermost square node represents the group (used in zdd-bdd-add combinations)
+    --some nodes have a boundary others dont (i think it has to do with negations in bdds)
+    --cudd starts from var 0 thus the printed variables are all -1
+    --
+    as = "bdd: neg 2"
+    a = neg $ var 2 
+    bs = "neg 2"
+    b = neg $ varZ 2
+    --negation for zdd is defined as all other options beside the negated var are possible
+    --remove imp 1 to see how
+    --thus: TopZ `difference_with` formula without negation.
+    --
+    cs = "bdd conversion: (neg 2) -> (neg 3)"
+    c = createZddFromBdd (neg $ var 2 `imp` (neg (var 3)))
+    ds = "(neg 2) -> (neg 3)"
+    d = neg $ varZ 2 `imp` (neg $ varZ 3)
+    --in building this becomes a problem when operating on formulas containing negation 
+    --the conversion shows the correct zdd.
+    --
+    es = "bdd conversion: forall\\_2 (neg 3)"
+    e = createZddFromBdd (forall 2 (neg $ var 3))
+    fs = "forall\\_2 (neg 3)"
+    f = forall 2 (neg $ varZ 3)
+    --The forall and exist functions dont work. (exist is implemented as neg-forall-neg x)
+    --
+    gs = "sub0\\_2 (neg 2 -> neg 3)"
+    g = sub0 (neg $ varZ 2 `imp` (neg $ varZ 3)) 2
+    hs = "(sub0\\_2 (neg 2 -> neg 3)) -> neg 2"
+    h = sub0 (neg $ varZ 2 `imp` (neg $ varZ 3)) 2 `imp` (neg $ varZ 2)
+    is = "neg 2 -> (sub0\\_2 (neg 2 -> neg 3))"
+    i = neg $ varZ 2 `imp` (sub0 (neg $ varZ 2 `imp` (neg $ varZ 3)) 2)
+    --Sub0 and sub1 are zdd functions that 
+    --return the tree with a var replaced by 1 or 0
+    --this is close to the abstract-out method, 
+    --and what i attempted to use in my zdd forall method
+
+comparisonTestZddVsBdd :: String
+comparisonTestZddVsBdd = concat [
+  "Comparison test on queries: \\\\ \n"
+  , "exists zdd equal to bdd, on (E2(3) -> 3): " ++ show ((a == top) == (b == topZ)) ++ "\\\\ \n"
+  , "forall zdd equal to bdd, on (A2(3) -> 3):" ++ show ((c == top) == (d == topZ)) ++ "\\\\ \n"
+  ] where
+    a = exists 2 (var 3) `imp` var 3
+    b = exists 2 (varZ 3) `imp` varZ 3
+    c = forall 2 (var 3) `imp` var 3
+    d = forall 2 (varZ 3) `imp` varZ 3
+
+
+    
+--------------------------- Texable functionality
 
 texDdB :: Dd B -> String --future needs myshow (texDdWith) to be added, it decides what the variable names are
 texDdB d = unsafePerformIO $ do
@@ -269,39 +342,6 @@ instance TexAble KnowStruct where
 instance TexAble KnowScene where
   tex (kns, state) = tex kns ++ " , " ++ tex state
 
-giveBasicZddTex :: String
-giveBasicZddTex = concat [
-  "Basic ZDD functions in tree form\\\\ \n"
-  --,as, ": \\\\ \\[", giveBddTex a, "\\] \\\\ \n"
-  --,bs, ": \\\\ \\[", giveZddTex b, "\\] \\\\ \n"
-  ,cs, ": \\\\ \\[", giveBddTex c, "\\] \\\\ \n"
-  ,ds, ": \\\\ \\[", giveZddTex d, "\\] \\\\ \n"
-  --,es, ": \\\\ \\[", giveBddTex e, "\\] \\\\ \n"
-  --,fs, ": \\\\ \\[", giveZddTex f, "\\] \\\\ \n"
-  ,gs, ": \\\\ \\[", giveZddTex g, "\\] \\\\ \n"
-  ,hs, ": \\\\ \\[", giveZddTex h, "\\] \\\\ \n"
-  ,is, ": \\\\ \\[", giveZddTex i, "\\] \\\\ \n"
-  ] where
-    as = "exists 2 (var 3)"
-    a = exists 2 (var 3)
-    bs = "exists 2 (varZ 3)"
-    b = exists 2 (varZ 3) 
-    cs = "neg var 2 -> (neg var 3)"
-    c = neg $ var 2 `imp` (neg (var 3))
-    ds = "(neg varZ 2) -> (neg varZ 3)"
-    d = neg $ varZ 2 `imp` (neg $ varZ 3) 
-    es = "forall 2 (neg \\$ var 3)"
-    e = forall 2 (neg $ var 3)
-    fs = "forall 2 (neg \\$ varZ 3)"
-    f = forall 2 (neg $ varZ 3)
-    gs = "sub0 (neg 2 -> neg 3) for 2"
-    g = sub0 (neg $ varZ 2 `imp` (neg $ varZ 3)) 2
-    hs = "(sub0 (neg 2 -> neg 3) for 2) -> neg varZ 2"
-    h = (sub0 (neg $ varZ 2 `imp` (neg $ varZ 3)) 2) `imp` (neg $ varZ 2)
-    is = "neg varZ 2 -> (sub0 (neg 2 -> neg 3) for 2)"
-    i = (neg $ varZ 2) `imp` (sub0 (neg $ varZ 2 `imp` (neg $ varZ 3)) 2)
-    
-
 giveZddTex :: Dd Z -> String
 giveZddTex z = concat 
   [
@@ -316,19 +356,7 @@ giveBddTex b = concat
     , texDdB b
     , "} \\end{array}\n "]
 
-{-let 
 
-  let x = neg (forall 2 (neg $ var 3)) `imp` var 3
-  let y = neg (forall 2 (neg $ varZ 3)) `imp` varZ 3
-
-  --putStrLn ("basic check of zdd tautology, (1&bot) -> (1|top): " ++ show (c == topZ))
-  --printZddInfo c "basic check"
-  --putStrLn ("exists zdd equal to bdd, on (E2(3) -> 3): " ++ show ((a == top) == (b == topZ)))
-  --putStrLn ("forall zdd equal to bdd: on (A2(3) -> 3)" ++ show ((x == top) == (y == topZ)))
-  --putStrLn ("see validViaZdd in S5_CUDD.hs for precise implementation.\n")
-  --putStrLn ("bdd exists and forall the same: " ++ show (a == x) ++ ", zdd exists and forall:" ++ show(b == y))
-  --printZddInfo ((negZ $ varZ 3) `impZ` (varZ 1)) "~3 ->1"--`impZ` varZ 1) "~3 -> 1"
-   -}
 {-
 load in the dot file/string given by dump dot, with: format :: String -> String
 
