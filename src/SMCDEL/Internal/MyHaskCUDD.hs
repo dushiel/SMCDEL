@@ -11,15 +11,19 @@ module SMCDEL.Internal.MyHaskCUDD (
   gfp, 
   -- * extra Zdd functionalities
   gfpZ, writeToDot, printDdInfo, differenceZ, portVars, initZddVarsWithInt, topZ, varZ, botZ,
-  createZddFromBdd, forceCheckDd
+  createZddFromBdd, forceCheckDd, sub0, sub1
 ) where
 
 import qualified Cudd.Cudd
 import System.IO.Unsafe
 import System.IO.Temp
 
-
-
+sub0 :: Dd Z -> Int -> Dd Z
+sub0 z n = ToDd $ Cudd.Cudd.cuddZddSub0 manager zmin n where
+  ToDd zmin = z
+sub1 :: Dd Z -> Int -> Dd Z
+sub1 z n = ToDd $ Cudd.Cudd.cuddZddSub1 manager zmin n where
+  ToDd zmin = z
 
 manager :: Cudd.Cudd.DdManager
 manager = Cudd.Cudd.cuddInit
@@ -127,11 +131,12 @@ instance DdF Z where
   ifthenelse (ToDd x) (ToDd y) (ToDd z) = ToDd (Cudd.Cudd.cuddZddITE manager x y z)
   exists n zdd =  neg $ forall n $ neg zdd
   forall n (ToDd zdd) = x `dis` y where
-    x = ToDd $ Cudd.Cudd.cuddZddSub0 manager zdd n
+    x = (neg $ varZ n) `imp` (ToDd $ Cudd.Cudd.cuddZddSub0 manager zdd n)
     y = ToDd $ Cudd.Cudd.cuddZddChange manager (Cudd.Cudd.cuddZddSub1 manager zdd n) n
   restrict (ToDd zdd) (n,bit) =  ToDd $ if bit 
     then Cudd.Cudd.cuddZddChange manager (Cudd.Cudd.cuddZddSub1 manager zdd n) n
   else Cudd.Cudd.cuddZddSub0 manager zdd n
+  
 
   --Set versions
   forallSet [] _ = error "empty UniversalVar list"

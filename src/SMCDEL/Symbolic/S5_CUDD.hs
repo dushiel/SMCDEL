@@ -38,7 +38,7 @@ boolBddOf (Exists ps f) = boolBddOf (foldl singleExists f ps) where
 boolBddOf _             = error "boolBddOf failed: Not a boolean formula."
 
 data KnowStruct = KnS [Prp] !(Dd B) [(Agent,[Prp])] | KnSZ [Prp] !(Dd Z) [(Agent,[Prp])] deriving (Eq,Show)
-type KnState = [Prp]
+type KnState = [Prp] 
 type KnowScene = (KnowStruct,KnState)
 
 instance HasVocab KnowStruct where
@@ -147,10 +147,8 @@ boolZddOf (Conj forms)  = conSet $ map boolZddOf forms
 boolZddOf (Disj forms)  = disSet $ map boolZddOf forms
 boolZddOf (Impl f g)    = imp (boolZddOf f) (boolZddOf g)
 boolZddOf (Equi f g)    = equ (boolZddOf f) (boolZddOf g)
-boolZddOf (Forall ps f) = boolZddOf (foldl singleForall f ps) where
-  singleForall g p = Conj [ substit p Top g, substit p Bot g ] --Why this way???
-boolZddOf (Exists ps f) = boolZddOf (foldl singleExists f ps) where
-  singleExists g p = Disj [ substit p Top g, substit p Bot g ]
+boolZddOf (Forall ps f) = forallSet (map fromEnum ps) (boolZddOf f)
+boolZddOf (Exists ps f) = existsSet (map fromEnum ps) (boolZddOf f)
 boolZddOf _             = error "boolZddOf failed: Not a boolean formula."
 
 zddOf :: KnowStruct -> Form -> Dd Z
@@ -207,24 +205,7 @@ zddOf _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
 --------------querying
 
 validViaZdd :: KnowStruct -> Form -> Bool
-validViaZdd kns@(KnSZ _ lawzdd _) f = unsafePerformIO $! do 
-  let a = exists 2 (var 3) `imp` var 3
-  let b = exists 2 (varZ 3) `imp` varZ 3
-  let c = (varZ 1 `con` botZ) `imp` (varZ 1 `dis` topZ)
-
-  let x = neg (forall 2 (neg $ var 3)) `imp` var 3
-  let y = neg (forall 2 (neg $ varZ 3)) `imp` varZ 3
-
-  --putStrLn ("basic check of zdd tautology, (1&bot) -> (1|top): " ++ show (c == topZ))
-  --printZddInfo c "basic check"
-  --putStrLn ("exists zdd equal to bdd, on (E2(3) -> 3): " ++ show ((a == top) == (b == topZ)))
-  --putStrLn ("forall zdd equal to bdd: on (A2(3) -> 3)" ++ show ((x == top) == (y == topZ)))
-  --putStrLn ("see validViaZdd in S5_CUDD.hs for precise implementation.\n")
-  --putStrLn ("bdd exists and forall the same: " ++ show (a == x) ++ ", zdd exists and forall:" ++ show(b == y))
-  --printZddInfo ((negZ $ varZ 3) `impZ` (varZ 1)) "~3 ->1"--`impZ` varZ 1) "~3 -> 1"
-   
-  let z = topZ == lawzdd `imp` zddOf kns f
-  return z
+validViaZdd kns@(KnSZ _ lawzdd _) f = topZ == lawzdd `imp` zddOf kns f
 
 evalViaZdd :: KnowScene -> Form -> Bool
 evalViaZdd (kns@(KnSZ allprops _ obs),s) f = bool where
@@ -288,7 +269,66 @@ instance TexAble KnowStruct where
 instance TexAble KnowScene where
   tex (kns, state) = tex kns ++ " , " ++ tex state
 
+giveBasicZddTex :: String
+giveBasicZddTex = concat [
+  "Basic ZDD functions in tree form\\\\ \n"
+  --,as, ": \\\\ \\[", giveBddTex a, "\\] \\\\ \n"
+  --,bs, ": \\\\ \\[", giveZddTex b, "\\] \\\\ \n"
+  ,cs, ": \\\\ \\[", giveBddTex c, "\\] \\\\ \n"
+  ,ds, ": \\\\ \\[", giveZddTex d, "\\] \\\\ \n"
+  --,es, ": \\\\ \\[", giveBddTex e, "\\] \\\\ \n"
+  --,fs, ": \\\\ \\[", giveZddTex f, "\\] \\\\ \n"
+  ,gs, ": \\\\ \\[", giveZddTex g, "\\] \\\\ \n"
+  ,hs, ": \\\\ \\[", giveZddTex h, "\\] \\\\ \n"
+  ,is, ": \\\\ \\[", giveZddTex i, "\\] \\\\ \n"
+  ] where
+    as = "exists 2 (var 3)"
+    a = exists 2 (var 3)
+    bs = "exists 2 (varZ 3)"
+    b = exists 2 (varZ 3) 
+    cs = "neg var 2 -> (neg var 3)"
+    c = neg $ var 2 `imp` (neg (var 3))
+    ds = "(neg varZ 2) -> (neg varZ 3)"
+    d = neg $ varZ 2 `imp` (neg $ varZ 3) 
+    es = "forall 2 (neg \\$ var 3)"
+    e = forall 2 (neg $ var 3)
+    fs = "forall 2 (neg \\$ varZ 3)"
+    f = forall 2 (neg $ varZ 3)
+    gs = "sub0 (neg 2 -> neg 3) for 2"
+    g = sub0 (neg $ varZ 2 `imp` (neg $ varZ 3)) 2
+    hs = "(sub0 (neg 2 -> neg 3) for 2) -> neg varZ 2"
+    h = (sub0 (neg $ varZ 2 `imp` (neg $ varZ 3)) 2) `imp` (neg $ varZ 2)
+    is = "neg varZ 2 -> (sub0 (neg 2 -> neg 3) for 2)"
+    i = (neg $ varZ 2) `imp` (sub0 (neg $ varZ 2 `imp` (neg $ varZ 3)) 2)
+    
 
+giveZddTex :: Dd Z -> String
+giveZddTex z = concat 
+  [
+    " \\begin{array}{l} \\scalebox{0.4}{"
+    , texDdZ z
+    , "} \\end{array}\n "] 
+  
+giveBddTex :: Dd B -> String
+giveBddTex b = concat 
+  [
+    " \\begin{array}{l} \\scalebox{0.4}{"
+    , texDdB b
+    , "} \\end{array}\n "]
+
+{-let 
+
+  let x = neg (forall 2 (neg $ var 3)) `imp` var 3
+  let y = neg (forall 2 (neg $ varZ 3)) `imp` varZ 3
+
+  --putStrLn ("basic check of zdd tautology, (1&bot) -> (1|top): " ++ show (c == topZ))
+  --printZddInfo c "basic check"
+  --putStrLn ("exists zdd equal to bdd, on (E2(3) -> 3): " ++ show ((a == top) == (b == topZ)))
+  --putStrLn ("forall zdd equal to bdd: on (A2(3) -> 3)" ++ show ((x == top) == (y == topZ)))
+  --putStrLn ("see validViaZdd in S5_CUDD.hs for precise implementation.\n")
+  --putStrLn ("bdd exists and forall the same: " ++ show (a == x) ++ ", zdd exists and forall:" ++ show(b == y))
+  --printZddInfo ((negZ $ varZ 3) `impZ` (varZ 1)) "~3 ->1"--`impZ` varZ 1) "~3 -> 1"
+   -}
 {-
 load in the dot file/string given by dump dot, with: format :: String -> String
 

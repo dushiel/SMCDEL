@@ -36,8 +36,10 @@ main = do
       let mykns = KnS (map P vocabInts) (boolBddOf $! lawform) (map (second (map P)) obs)
       initZddVars vocabInts
       let myknsZ = KnSZ (map P vocabInts) (boolZddOf $! lawform) (map (second (map P)) obs)
-      hPutStrLn outHandle $ "The law: " ++ ppForm lawform 
-  
+      hPutStrLn outHandle $ "The law: " ++ ppForm lawform  ++ " \\\\ \\\\"
+
+      hPutStrLn outHandle giveBasicZddTex
+
       when texMode $
         hPutStrLn outHandle $ unlines
           [ "\\section{Given Knowledge Structure}","knowledge structure with Bdd:\\", "\\[ (\\mathcal{F},s) = (" ++ tex ((mykns,[])::KnowScene) ++ ") \\]","knowledge structure with Zdd:\\","\\[ (\\mathcal{F},s) = (" ++ tex ((myknsZ,[])::KnowScene) ++ ") \\]", "\\section{Results}" ]
