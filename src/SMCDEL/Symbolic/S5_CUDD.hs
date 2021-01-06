@@ -221,18 +221,27 @@ evalViaZdd (kns@(KnSZ allprops _ obs),s) f = bool where
 giveBasicZddTex :: String
 giveBasicZddTex = concat [
   "Basic ZDD functions in tree form, see S5\\_CUDD.giveBasicZddTex for implementation.\\\\ \n"
-  ,as, ": \\\\ \\[", giveBddTex a, "\\] \\\\ \n"
-  ,bs, ": \\\\ \\[", giveZddTex b, "\\] \\\\ \n"
+  --,as, ": \\\\ \\[", giveZddTex a, "\\] \\\\ \n"
+  --,a3s, ": \\\\ \\[", giveZddTex a3, "\\] \\\\ \n"
+  --,a2s, ": \\\\ \\[", giveZddTex a2, "\\] \\\\ \n"
+  --,bs, ": \\\\ \\[", giveZddTex b, "\\] \\\\ \n"
   --,cs, ": \\\\ \\[", giveZddTex c, "\\] \\\\ \n"
+  --,b2s, ": \\\\ \\[", giveZddTex b2, "\\] \\\\ \n"
+  --,c2s, ": \\\\ \\[", giveZddTex c2, "\\] \\\\ \n"
   --,ds, ": \\\\ \\[", giveZddTex d, "\\] \\\\ \n"
   ,es, ": \\\\ \\[", giveZddTex e, "\\] \\\\ \n"
-  ,fs, ": \\\\ \\[", giveZddTex f, "\\] \\\\ \n"
+  ,fs, ": \\\\ \\[", giveBddTex f, "\\] \\\\ \n"
+  ,f2s, ": \\\\ \\[", giveZddTex f2, "\\] \\\\ \n"
+  ,ys, ": \\\\ \\[", giveZddTex y, "\\] \\\\ \n"
+  ,zs, ": \\\\ \\[", giveBddTex z, "\\] \\\\ \n"
+  ,z2s, ": \\\\ \\[", giveZddTex z2, "\\] \\\\ \n"
   --,gs, ": \\\\ \\[", giveZddTex g, "\\] \\\\ \n"
   --,hs, ": \\\\ \\[", giveZddTex h, "\\] \\\\ \n"
   --,is, ": \\\\ \\[", giveZddTex i, "\\] \\\\ \n"
+  --,ks, ": \\\\ \\[", giveZddTex k, "\\] \\\\ \n"
   --
   -- add comparisonTestZddVsBdd here for comparing evaluations
-  --, comparisonTestZddVsBdd
+  , comparisonTestZddVsBdd
   --
   ] where
     --for zdd use topZ, botZ and varZ instead
@@ -243,48 +252,70 @@ giveBasicZddTex = concat [
     --some nodes have a boundary others dont (i think it has to do with negations in bdds)
     --cudd starts from var 0 thus the printed variables are all -1
     --
-    as = "bdd: neg 2"
-    a = neg $ var 2 
-    bs = "neg 2"
-    b = neg $ varZ 2
+    --as = "neg 1 con neg 3"
+    --a = (neg $ varZ 1) `con` (neg $ varZ 3)
+    --a2s = "neg (1 con 3) "
+    --a2 = neg $ (varZ 1 `con` varZ 3)
+    bs = "T sub 134"
+    b = sub0 (sub0 (sub0 topZ 1) 4) 3
+    cs = "(sub0 2 (neg 2 con 3) "
+    c = (sub0 ((neg $ varZ 2) `con` varZ 3) 2) 
+    b2s = "(sub0 2 (neg 2 con 3) x 2T) "
+    b2 = (sub0 ((neg $ varZ 2) `con` varZ 3) 2) `productZ` topZ
+    c2s = "(sub02 (neg 2 con 3) x2T) dis 2"
+    c2 = b2 `dis` (varZ 2)
     --negation for zdd is defined as all other options beside the negated var are possible
-    --remove imp 1 to see how
     --thus: TopZ `difference_with` formula without negation.
     --
-    cs = "bdd conversion: (neg 2) -> (neg 3)"
-    c = createZddFromBdd (neg $ var 2 `imp` (neg (var 3)))
-    ds = "(neg 2) -> (neg 3)"
-    d = neg $ varZ 2 `imp` (neg $ varZ 3)
+    --cs = "bdd conversion: (neg 2) -> (neg 3)"
+    --c = createZddFromBdd (neg $ var 2 `imp` (neg (var 3)))
+    --ds = "(neg 2) -> (neg 3)"
+    --d = neg $ varZ 2 `imp` (neg $ varZ 3)
     --in building this becomes a problem when operating on formulas containing negation 
     --the conversion shows the correct zdd.
     --
-    es = "bdd conversion: forall\\_2 (neg 3)"
-    e = createZddFromBdd (forall 2 (neg $ var 3))
-    fs = "forall\\_2 (neg 3)"
-    f = forall 2 (neg $ varZ 3)
+    es = "exists\\_2 (neg 3 con 2)"
+    e = exists 2 ((neg $ varZ 3) `con` varZ 2)
+    fs = "bdd: exists\\_2 (neg 3 con 2)"
+    f = exists 2 ((neg $ var 3) `con` var 2)
+    f2s = "conversion: exists\\_2 (neg 3 con 2)"
+    f2 = createZddFromBdd (exists 2 ((neg $ var 3) `con` var 2))
+    ys = "forall\\_2 (neg (neg 3 con 2))"
+    y = forall 2 (neg ((neg $ varZ 3) `con` varZ 2))
+    zs = "bdd: forall\\_2 (neg (neg 3 con 2))"
+    z = forall 2 (neg ((neg $ var 3) `con` var 2))
+    z2s = "conversion: forall\\_2 (neg (neg 3 con 2))"
+    z2 = createZddFromBdd (forall 2 (neg ((neg $ var 3) `con` var 2)))
     --The forall and exist functions dont work. (exist is implemented as neg-forall-neg x)
     --
-    gs = "sub0\\_2 (neg 2 -> neg 3)"
-    g = sub0 (neg $ varZ 2 `imp` (neg $ varZ 3)) 2
-    hs = "(sub0\\_2 (neg 2 -> neg 3)) -> neg 2"
-    h = sub0 (neg $ varZ 2 `imp` (neg $ varZ 3)) 2 `imp` (neg $ varZ 2)
-    is = "neg 2 -> (sub0\\_2 (neg 2 -> neg 3))"
-    i = neg $ varZ 2 `imp` (sub0 (neg $ varZ 2 `imp` (neg $ varZ 3)) 2)
+    gs = "sub1\\_2 (neg 2 -> neg 3)"
+    g = sub1 (neg $ varZ 2 `imp` (neg $ varZ 3)) 2
+    hs = "sub0\\_2 (neg 2 -> neg 3)"
+    h = sub0 (neg $ varZ 2 `imp` (neg $ varZ 3)) 2
+    is = "(sub0\\_2 (neg 2 -> neg 3)) -> top"
+    i = sub1 (neg $ varZ 2 `imp` (neg $ varZ 3)) 2 `imp` topZ
+    js = "(sub0\\_2 (neg 2 -> neg 3)) -> bot"
+    j = sub0 (neg $ varZ 2 `imp` (neg $ varZ 3)) 2 `imp` botZ
     --Sub0 and sub1 are zdd functions that 
     --return the tree with a var replaced by 1 or 0
     --this is close to the abstract-out method, 
     --and what i attempted to use in my zdd forall method
+    ks = "removing and inserting on sub0: forall 2 (neg 3 con 2)"
+    k = ifthenelse (varZ 2)  (sub0 z 2) (sub0 z 2) where
+      z = neg $ varZ 3
 
 comparisonTestZddVsBdd :: String
 comparisonTestZddVsBdd = concat [
   "Comparison test on queries: \\\\ \n"
-  , "exists zdd equal to bdd, on (E2(3) -> 3): " ++ show ((a == top) == (b == topZ)) ++ "\\\\ \n"
-  , "forall zdd equal to bdd, on (A2(3) -> 3):" ++ show ((c == top) == (d == topZ)) ++ "\\\\ \n"
+  , "exists zdd equal to bdd, on (E2(3) -\\> 3): " ++ show ((a == top) == (b == topZ)) ++ "\\\\ \n"
+  , "forall zdd equal to bdd, on (A2(3) -\\> 3):" ++ show ((c == top) == (d == topZ)) ++ "\\\\ \n"
+  , "empty zdd equal to botZ, on (A2(3) -\\> 3):" ++ show (e == botZ) ++ "\\\\ \n"
   ] where
     a = exists 2 (var 3) `imp` var 3
     b = exists 2 (varZ 3) `imp` varZ 3
     c = forall 2 (var 3) `imp` var 3
     d = forall 2 (varZ 3) `imp` varZ 3
+    e = neg (varZ 4 `con` (varZ 3 `con` (varZ 2 `con` (varZ 1))))
 
 
     
@@ -356,7 +387,8 @@ giveBddTex b = concat
     , texDdB b
     , "} \\end{array}\n "]
 
-
+portvar :: IO()
+portvar = portVars
 {-
 load in the dot file/string given by dump dot, with: format :: String -> String
 
