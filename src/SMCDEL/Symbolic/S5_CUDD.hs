@@ -217,7 +217,7 @@ evalViaZdd (kns@(KnSZ allprops _ obs),s) f = bool where
 
 
 --------------Debugging!
-
+{-}
 giveBasicZddTex :: String
 giveBasicZddTex = concat [
   "Basic ZDD functions in tree form, see S5\\_CUDD.giveBasicZddTex for implementation.\\\\ \n"
@@ -229,19 +229,19 @@ giveBasicZddTex = concat [
   --,b2s, ": \\\\ \\[", giveZddTex b2, "\\] \\\\ \n"
   --,c2s, ": \\\\ \\[", giveZddTex c2, "\\] \\\\ \n"
   --,ds, ": \\\\ \\[", giveZddTex d, "\\] \\\\ \n"
-  ,es, ": \\\\ \\[", giveZddTex e, "\\] \\\\ \n"
-  ,fs, ": \\\\ \\[", giveBddTex f, "\\] \\\\ \n"
-  ,f2s, ": \\\\ \\[", giveZddTex f2, "\\] \\\\ \n"
-  ,ys, ": \\\\ \\[", giveZddTex y, "\\] \\\\ \n"
-  ,zs, ": \\\\ \\[", giveBddTex z, "\\] \\\\ \n"
-  ,z2s, ": \\\\ \\[", giveZddTex z2, "\\] \\\\ \n"
+  --,es, ": \\\\ \\[", giveZddTex e, "\\] \\\\ \n"
+  --,fs, ": \\\\ \\[", giveBddTex f, "\\] \\\\ \n"
+  --,f2s, ": \\\\ \\[", giveZddTex f2, "\\] \\\\ \n"
+  --,ys, ": \\\\ \\[", giveZddTex y, "\\] \\\\ \n"
+  --,zs, ": \\\\ \\[", giveBddTex z, "\\] \\\\ \n"
+  --,z2s, ": \\\\ \\[", giveZddTex z2, "\\] \\\\ \n"
   --,gs, ": \\\\ \\[", giveZddTex g, "\\] \\\\ \n"
   --,hs, ": \\\\ \\[", giveZddTex h, "\\] \\\\ \n"
   --,is, ": \\\\ \\[", giveZddTex i, "\\] \\\\ \n"
   --,ks, ": \\\\ \\[", giveZddTex k, "\\] \\\\ \n"
   --
   -- add comparisonTestZddVsBdd here for comparing evaluations
-  , comparisonTestZddVsBdd
+  --, comparisonTestZddVsBdd
   --
   ] where
     --for zdd use topZ, botZ and varZ instead
@@ -317,7 +317,7 @@ comparisonTestZddVsBdd = concat [
     d = forall 2 (varZ 3) `imp` varZ 3
     e = neg (varZ 4 `con` (varZ 3 `con` (varZ 2 `con` (varZ 1))))
 
-
+-}
     
 --------------------------- Texable functionality
 
