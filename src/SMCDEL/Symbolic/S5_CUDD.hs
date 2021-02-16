@@ -18,9 +18,11 @@ import Data.GraphViz
 --import Text.RE.Tools.Grep
 import qualified Data.Text.Lazy as B
 import qualified Data.Text.Lazy.IO as L
---import qualified Data.GraphViz.Types.Generalised as G
---import Data.GraphViz.Printing
+import qualified Data.GraphViz.Types.Generalised as GraphGen
+import qualified Data.GraphViz.Algorithms as GraphAlg
+import Data.GraphViz.Printing (renderDot)
 import qualified Data.GraphViz.Attributes.Complete as GraphAttr
+import Data.Char
 
 ---------------------------
 import Control.DeepSeq (rnf)
@@ -330,27 +332,41 @@ comparisonTestZddVsBdd = concat [
     
 --------------------------- Texable functionality
 
-texDdB :: Dd B -> String --future needs myshow (texDdWith) to be added, it decides what the variable names are
-texDdB d = unsafePerformIO $ do
+{-texDdBwith :: (Int -> String) -> Dd B -> String --it decides what the variable names are
+texDdBwith myShow d = unsafePerformIO $ do
   (i,o,_,_) <- runInteractiveCommand "dot2tex --figpreamble=\"\\huge\" --figonly -traw"
   hPutStr i (returnDot d ++ "\n")
   hClose i
-
-
-  --let x = pack $ returnDot d
-  --let y = parseDotGraphLiberally x
 
   --very ugly method for getting the correct type, find out a method for knowing the type of retur
   writeToDot d "tempBdd.dot"
   xDotText <- L.readFile "tempBdd.dot"
 
-  let xDotGraph = parseDotGraphLiberally xDotText :: DotGraph String
-  let updatedXDotGraph = changeMyGraph xDotGraph
+  let xDotGraph = parseDotGraphLiberally xDotText :: GraphGen.DotGraph String
+  let updatedXDotGraph = changeMyGraph myShow (GraphAlg.canonicalise xDotGraph)
   --L.putStrLn $ renderDot $ toDot xDotGraph
   print $ graphNodes updatedXDotGraph
   --print $ graphEdges xDotGraph
 
-  
+  result <- hGetContents o
+  return $ dropWhileEnd isSpace $ dropWhile isSpace result-}
+
+texDdB :: Dd B -> String 
+texDdB d = unsafePerformIO $ do
+  (i,o,_,_) <- runInteractiveCommand "dot2tex --figpreamble=\"\\huge\" --figonly -traw"
+
+  -- replace with B.pack returnDot d, with a clean method for de-IO-ing returnDot (use hGetContents?)
+  writeToDot d "tempBdd.dot"
+  xDotText <- L.readFile "tempBdd.dot"
+
+  let xDotGraph = parseDotGraphLiberally xDotText :: GraphGen.DotGraph String
+  let updatedXDotGraph = changeMyGraph (GraphAlg.canonicalise xDotGraph)
+  --L.putStrLn $ renderDot $ toDot xDotGraph
+  --print $ graphNodes updatedXDotGraph
+  --print $ graphEdges xDotGraph
+
+  hPutStr i ((B.unpack $ renderDot $ toDot xDotGraph) ++ "\n")
+  hClose i
   result <- hGetContents o
   return $ dropWhileEnd isSpace $ dropWhile isSpace result
 
@@ -418,8 +434,25 @@ changeMyGraph dg =
   dg { graphStatements = (graphStatements dg) { nodeStmts = map changeDotNode (nodeStmts (graphStatements dg)) } } where
   changeDotNode dn = dn { nodeAttributes = map changeNodeAttributes (nodeAttributes dn) }
   changeNodeAttributes na = case na of
-    GraphAttr.Label (GraphAttr.StrLabel s) -> GraphAttr.Label (GraphAttr.StrLabel (B.concat [s, B.pack "new"]))
+    -- i am not sold on my usage of the read function here, i do not check whether the string is actually convertable to string and i feel like Text.Lazy has a read function of its own
+    --GraphAttr.Label (GraphAttr.StrLabel s) -> GraphAttr.Label (GraphAttr.StrLabel (B.pack (myShow (read (B.unpack s) :: Int))))
+    GraphAttr.Label (GraphAttr.StrLabel s) -> GraphAttr.Label (GraphAttr.StrLabel (B.pack $ show ((read (B.unpack s) :: Int) + 1 )))
     x                  -> x
+
+{- subgraph version
+changeMyGraph :: DotGraph String -> DotGraph String
+changeMyGraph dg =
+  dg { graphStatements = (graphStatements dg) { subGraphs = map changeDotNode (subGraphs (graphStatements dg)) } } where
+  changeDotSubGraph dn = dn { nodeAttribbutes = map changeSubGraphAttributes (nodeAttributes dn) }
+  changeSubGraphAttributes na = case na of
+    -- i am not sold on my usage of the read function here, i do not check whether the string is actually convertable to string and i feel like Text.Lazy has a read function of its own
+    --GraphAttr.Label (GraphAttr.StrLabel s) -> GraphAttr.Label (GraphAttr.StrLabel (B.pack (myShow (read (B.unpack s) :: Int))))
+    GraphAttr.Label (GraphAttr.StrLabel s) -> GraphAttr.Label (GraphAttr.StrLabel (B.pack $ show ((read (B.unpack s) :: Int) + 1 )))
+    x                  -> x
+
+-}
+
+
 
 {-
 load in the dot file/string given by dump dot, with: format :: String -> String

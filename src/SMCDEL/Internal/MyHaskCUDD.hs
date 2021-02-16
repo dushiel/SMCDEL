@@ -81,7 +81,7 @@ class DdF a where
     {-withSystemTempDirectory "smcdel" $ \tmpdir -> do
       writeToDot d (tmpdir ++ "/temp.dot")
       readFile (tmpdir ++ "/temp.dot")-}
-  forceCheckDd :: Dd a -> String --really ugly fix to ensure evaluation of dd
+  forceCheckDd :: Dd a -> String -- ugly fix to ensure evaluation of dd
   forceCheckDd d = unsafePerformIO $! do
     withSystemTempDirectory "smcdel" $ \tmpdir -> do
       writeToDot d (tmpdir ++ "/temp.dot")
@@ -204,8 +204,8 @@ differenceZ (ToDd x) (ToDd y) = ToDd $ Cudd.Cudd.cuddZddDiff manager x y
 
 initZddVarsWithInt :: [Int] -> Dd Z
 initZddVarsWithInt [] = error "initialising empty vocabulary list of zdd vars"
-initZddVarsWithInt [n] = varZ (n-1)
-initZddVarsWithInt (n: ns) = varZ (n-1) `dis` initZddVarsWithInt ns
+initZddVarsWithInt [n] = varZ (n)
+initZddVarsWithInt (n: ns) = varZ (n) `dis` initZddVarsWithInt ns
 
 createZddFromBdd :: Dd B -> Dd Z
 createZddFromBdd (ToDd b) = ToDd (Cudd.Cudd.cuddZddPortFromBdd manager b)
