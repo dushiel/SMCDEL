@@ -36,6 +36,13 @@ findNumberCacBDD :: Int -> Int -> Int
 findNumberCacBDD = findNumberWith (cacMudScnInit,SMCDEL.Symbolic.S5.evalViaBdd) where
   cacMudScnInit n m = ( SMCDEL.Symbolic.S5.KnS (mudPs n) (SMCDEL.Symbolic.S5.boolBddOf Top) [ (show i,delete (P i) (mudPs n)) | i <- [1..n] ], mudPs m )
 
+findNumberCUDDZ :: Int -> Int -> Int
+findNumberCUDDZ n m = unsafePerformIO $ do
+  SMCDEL.Symbolic.S5_CUDD.initZddVars [ 1 .. n ]
+  let cuddMudScnInit x y = ( SMCDEL.Symbolic.S5_CUDD.KnSZ (mudPs x) (SMCDEL.Symbolic.S5_CUDD.boolZddOf Top) [ (show i,delete (P i) (mudPs x)) | i <- [1..x] ], mudPs y )
+  let result = findNumberWith (cuddMudScnInit, SMCDEL.Symbolic.S5_CUDD.evalViaZdd) n m 
+  return result
+
 findNumberCUDD :: Int -> Int -> Int
 findNumberCUDD = findNumberWith (cuddMudScnInit,SMCDEL.Symbolic.S5_CUDD.evalViaBdd) where
   cuddMudScnInit n m = ( SMCDEL.Symbolic.S5_CUDD.KnS (mudPs n) (SMCDEL.Symbolic.S5_CUDD.boolBddOf Top) [ (show i,delete (P i) (mudPs n)) | i <- [1..n] ], mudPs m )
@@ -100,6 +107,7 @@ main =
   [ ("Triangle"  , findNumberTriangle  , [7..40] )
   , ("CacBDD"    , findNumberCacBDD    , [3..40] )
   , ("CUDD"      , findNumberCUDD      , [3..40] )
+  , ("CUDDZ"     , findNumberCUDDZ     , [3..40] )
   , ("K"         , findNumberK         , [3..12] )
   , ("DEMOS5"    , findNumberDemoS5    , [3..12] )
   , ("Trans"     , findNumberTrans     , [3..12] )

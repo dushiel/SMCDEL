@@ -42,7 +42,10 @@ main = do
 
       when texMode $
         hPutStrLn outHandle $ unlines
-          [ "\\section{Given Knowledge Structure}","knowledge structure with Bdd:\\", "\\[ (\\mathcal{F},s) = (" ++ tex ((mykns,[])::KnowScene) ++ ") \\]","knowledge structure with Zdd:\\","\\[ (\\mathcal{F},s) = (" ++ tex ((myknsZ,[])::KnowScene) ++ ") \\]", "\\section{Results}" ]
+          [ "\\section{Given Knowledge Structure}",
+          "knowledge structure with Bdd:\\", "\\[ (\\mathcal{F},s) = (" ++ tex ((mykns,[])::KnowScene) ++ ") \\]",
+          "knowledge structure with Zdd:\\","\\[ (\\mathcal{F},s) = (" ++ tex ((myknsZ,[])::KnowScene) ++ ") \\]", 
+          "\\section{Results}" ]
       mapM_ (doJob outHandle texMode mykns myknsZ) jobs
 
       when texMode $ hPutStrLn outHandle texEnd
@@ -67,13 +70,13 @@ doJob outHandle False mykns myknsZ (ValidQ f) = do
   vividPutStrLn ("Zdd builder says: " ++ show (validViaZdd myknsZ f) ++ "\n")
 doJob outHandle True mykns myknsZ (WhereQ f) = do
   hPutStrLn outHandle $ "At which states is $" ++ texForm (simplify f) ++ "$ true? $"
-  {-let states = map tex (whereViaBdd mykns f)
-  hPutStrLn outHandle $ intercalate "," states-}
-  hPutStrLn outHandle "$\n"
+  --let states = map tex (whereViaBdd mykns f)
+  --hPutStrLn outHandle $ intercalate "," states
+  --hPutStrLn outHandle "$\n"
 doJob outHandle False mykns myknsZ (WhereQ f) = do
   hPutStrLn outHandle $ "At which states is " ++ ppForm f ++ " true?"
-  {-mapM_ (vividPutStrLn.show.map(\(P n) -> n)) (whereViaBdd mykns f)-}
-  putStr "\n"
+  --mapM_ (vividPutStrLn.show.map(\(P n) -> n)) (whereViaBdd mykns f)
+  --putStr "\n"
 
 getInputAndSettings :: IO (String,[String])
 getInputAndSettings = do

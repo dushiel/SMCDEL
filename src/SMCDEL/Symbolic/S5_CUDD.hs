@@ -7,17 +7,22 @@ import Data.List ((\\))
 import SMCDEL.Internal.Help (apply)
 import SMCDEL.Language
 import System.IO.Unsafe
-import Debug.Trace
 import Data.List ((\\),delete,dropWhile,dropWhileEnd,intercalate,intersect,nub,sort)
-import Data.Tagged
-import System.IO (readFile)
+--import Data.Tagged
 import SMCDEL.Internal.TexDisplay
 import System.Process (runInteractiveCommand)
 import System.IO (hPutStr, hGetContents, hClose)
 import Data.Char (isSpace)
-import Data.GraphViz (parseDotGraphLiberally) 
-import Data.GraphViz.Types.Graph
-import Text.RE.Tools.Grep
+--------------------------
+import Data.GraphViz  
+--import Text.RE.Tools.Grep
+import qualified Data.Text.Lazy as B
+import qualified Data.Text.Lazy.IO as L
+--import qualified Data.GraphViz.Types.Generalised as G
+--import Data.GraphViz.Printing
+import qualified Data.GraphViz.Attributes.Complete as GraphAttr
+
+---------------------------
 import Control.DeepSeq (rnf)
 import Data.Typeable
 import Data.Text.Lazy (pack)
@@ -130,7 +135,6 @@ convertTest kns@(KnS _ law _) query = unsafePerformIO $ do
 
 initZddVars :: [Int] -> IO()
 initZddVars vocab = do
-  --_ <- return $! rnf (initZddVarsWithInt vocab)
   let v = initZddVarsWithInt vocab
   _ <- return $! rnf (forceCheckDd v)
   return ()
@@ -219,7 +223,12 @@ evalViaZdd (kns@(KnSZ allprops _ obs),s) f = bool where
 --------------Debugging!
 {-}
 giveBasicZddTex :: String
-giveBasicZddTex = concat [
+mudScnInit :: Int -> Int -> KnowScene
+mudScnInit n m = (KnS vocab law obs, actual) where
+  vocab  = [P 1 .. P n]
+  law    = boolBddOf Top
+  obs    = [ (show i, delete (P i) vocab) | i <- [1..n] ]
+  actual = [P 1 .. P m] = concat [
   "Basic ZDD functions in tree form, see S5\\_CUDD.giveBasicZddTex for implementation.\\\\ \n"
   --,as, ": \\\\ \\[", giveZddTex a, "\\] \\\\ \n"
   --,a3s, ": \\\\ \\[", giveZddTex a3, "\\] \\\\ \n"
@@ -325,9 +334,23 @@ texDdB :: Dd B -> String --future needs myshow (texDdWith) to be added, it decid
 texDdB d = unsafePerformIO $ do
   (i,o,_,_) <- runInteractiveCommand "dot2tex --figpreamble=\"\\huge\" --figonly -traw"
   hPutStr i (returnDot d ++ "\n")
+  hClose i
+
+
   --let x = pack $ returnDot d
   --let y = parseDotGraphLiberally x
-  hClose i
+
+  --very ugly method for getting the correct type, find out a method for knowing the type of retur
+  writeToDot d "tempBdd.dot"
+  xDotText <- L.readFile "tempBdd.dot"
+
+  let xDotGraph = parseDotGraphLiberally xDotText :: DotGraph String
+  let updatedXDotGraph = changeMyGraph xDotGraph
+  --L.putStrLn $ renderDot $ toDot xDotGraph
+  print $ graphNodes updatedXDotGraph
+  --print $ graphEdges xDotGraph
+
+  
   result <- hGetContents o
   return $ dropWhileEnd isSpace $ dropWhile isSpace result
 
@@ -389,6 +412,15 @@ giveBddTex b = concat
 
 portvar :: IO()
 portvar = portVars
+
+changeMyGraph :: DotGraph String -> DotGraph String
+changeMyGraph dg =
+  dg { graphStatements = (graphStatements dg) { nodeStmts = map changeDotNode (nodeStmts (graphStatements dg)) } } where
+  changeDotNode dn = dn { nodeAttributes = map changeNodeAttributes (nodeAttributes dn) }
+  changeNodeAttributes na = case na of
+    GraphAttr.Label (GraphAttr.StrLabel s) -> GraphAttr.Label (GraphAttr.StrLabel (B.concat [s, B.pack "new"]))
+    x                  -> x
+
 {-
 load in the dot file/string given by dump dot, with: format :: String -> String
 
