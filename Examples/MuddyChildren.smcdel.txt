@@ -1,5 +1,5 @@
 -- Three Muddy Children in SMCDEL
-VARS 1,2,3
+VARS 1,2,3,4
 LAW  Top
 OBS  alice: 2,3
      bob: 1,3

@@ -17,6 +17,8 @@ module SMCDEL.Internal.MyHaskCUDD (
 import qualified Cudd.Cudd
 import System.IO.Unsafe
 import System.IO.Temp
+import Debug.Trace
+
 
 sub0 :: Dd Z -> Int -> Dd Z
 sub0 z n = ToDd $ Cudd.Cudd.cuddZddSub0 manager zmin (n-1) where
@@ -141,9 +143,9 @@ instance DdF Z where
   exists n zdd =  neg $ forall n $ neg zdd
   forall n zdd = productZ ((sub0 zdd n) `con` (sub1 zdd n)) topZ
 
-  restrict (ToDd zdd) (n,bit) =  ToDd $ if bit 
-    then Cudd.Cudd.cuddZddChange manager (Cudd.Cudd.cuddZddSub1 manager zdd n) n
-  else Cudd.Cudd.cuddZddSub0 manager zdd n
+  restrict zdd (n,bit) = if bit 
+    then productZ (sub1 zdd n) topZ `debug` "true"
+  else productZ (sub0 zdd n) topZ `debug` "false"
   
 
   --Set versions
@@ -215,3 +217,4 @@ portVars :: IO()
 portVars = Cudd.Cudd.cuddZddVarFromBdd manager
 
 
+debug = flip trace
