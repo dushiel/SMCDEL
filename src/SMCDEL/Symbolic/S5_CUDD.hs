@@ -242,7 +242,7 @@ giveDebugTex = concat [
   ,es, ": \\\\ \\[", giveZddTex e, "\\] \\\\ \n"
   --
   -- add comparisonTestZddVsBdd here for comparing evaluations
-  --, comparisonTestZddVsBdd
+  , comparisonTestZddVsBdd
   --
   ] where
     --for zdd use topZ, botZ and varZ instead
@@ -306,18 +306,18 @@ texDdB d = unsafePerformIO $ do
   (i,o,_,_) <- runInteractiveCommand "dot2tex --figpreamble=\"\\huge\" --figonly -traw"
 
   -- replace with B.pack returnDot d, with a clean method for de-IO-ing returnDot (use hGetContents?)
-  writeToDot d "tempBdd.dot"
+  --writeToDot d "tempBdd.dot"
   xDotText <- L.readFile "tempBdd.dot"
 
-  -- let xDotGraph = parseDotGraphLiberally xDotText :: GraphGen.DotGraph String
+  let xDotGraph = parseDotGraphLiberally xDotText :: GraphGen.DotGraph String
   --let clusteredXDotGraph = clusterMyGraph xDotGraph
-  --let updatedXDotGraph = changeMyGraph GraphAlg.canonicalise clusteredXDotGraph
+  let updatedXDotGraph = GraphAlg.canonicalise xDotGraph
   --L.putStrLn $ renderDot $ toDot xDotGraph 
   --print $ graphNodes updatedXDotGraph
   -- print updatedXDotGraph
 
-  --hPutStr i (B.unpack (renderDot $ toDot updatedXDotGraph) ++ "\n")
-  hPutStr i (returnDot d ++ "\n")
+  hPutStr i (B.unpack (renderDot $ toDot updatedXDotGraph) ++ "\n")
+  --hPutStr i (returnDot d ++ "\n")
   hClose i
   result <- hGetContents o
   return $ dropWhileEnd isSpace $ dropWhile isSpace result
@@ -391,7 +391,7 @@ changeMyGraph dg =
     GraphAttr.Label (GraphAttr.StrLabel s) -> GraphAttr.Label (GraphAttr.StrLabel (B.pack $ show ((read (B.unpack s) :: Int) + 1 )))
     x                  -> x
 
-{-clusterMyGraph :: DotGraph String -> DotGraph String
+clusterMyGraph :: DotGraph String -> DotGraph String
 clusterMyGraph dg =
   dg { graphStatements = (graphStatements dg) { nodeStmts = map changeDotNode (nodeStmts (graphStatements dg)) } } where
   changeDotNode dn = dn { nodeAttributes = map changeNodeAttributes (nodeAttributes dn) }
@@ -400,7 +400,7 @@ clusterMyGraph dg =
     --GraphAttr.Label (GraphAttr.StrLabel s) -> GraphAttr.Label (GraphAttr.StrLabel (B.pack (myShow (read (B.unpack s) :: Int))))
     GraphAttr.Label (GraphAttr.StrLabel s) -> GraphAttr.Label (GraphAttr.StrLabel (B.pack $ show ((read (B.unpack s) :: Int) + 1 )))
     x                  -> x
--}
+
 
 {- subgraph version
 changeMyGraph :: DotGraph String -> DotGraph String
