@@ -235,11 +235,19 @@ mudScnInit n m = (KnS vocab law obs, actual) where
 giveDebugTex :: String
 giveDebugTex = concat [
   "Testing evalviaZdd (restrict set), see S5\\_CUDD.giveBasicZddTex for implementation.\\\\ \n"
+  --,ns, ": \\\\ \\[", giveZddTex n, "\\] \\\\ \n"
+  --,ms, ": \\\\ \\[", giveZddTex m, "\\] \\\\ \n"
   ,as, ": \\\\ \\[", giveZddTex a, "\\] \\\\ \n"
   ,bs, ": \\\\ \\[", giveZddTex b, "\\] \\\\ \n"
-  ,cs, ": \\\\ \\[", giveZddTex c, "\\] \\\\ \n"
-  ,ds, ": \\\\ \\[", giveZddTex d, "\\] \\\\ \n"
-  ,es, ": \\\\ \\[", giveZddTex e, "\\] \\\\ \n"
+  --,cs, ": \\\\ \\[", giveZddTex c, "\\] \\\\ \n"
+  --,ds, ": \\\\ \\[", giveZddTex d, "\\] \\\\ \n"
+  --,d2s, ": \\\\ \\[", giveZddTex d2, "\\] \\\\ \n"
+  --,es, ": \\\\ \\[", giveZddTex e, "\\] \\\\ \n"
+  --,fs, ": \\\\ \\[", giveZddTex f, "\\] \\\\ \n"
+  --,f2s, ": \\\\ \\[", giveZddTex f2, "\\] \\\\ \n"
+  --,ys, ": \\\\ \\[", giveZddTex y, "\\] \\\\ \n"
+  --,zs, ": \\\\ \\[", giveZddTex z, "\\] \\\\ \n"
+  --,z2s, ": \\\\ \\[", giveZddTex z2, "\\] \\\\ \n"
   --
   -- add comparisonTestZddVsBdd here for comparing evaluations
   , comparisonTestZddVsBdd
@@ -253,6 +261,15 @@ giveDebugTex = concat [
     --some nodes have a boundary others dont (i think it has to do with negations in bdds)
     --cudd starts from var 0 thus the printed variables are all -1
     --
+    --ms = "sub0 (2 and neg 3) 4"
+    --m = sub0 (varZ 2 `con` neg (varZ 3)) 4
+    --ns = "product  (sub0 (2 and neg 3) 4) neg (1 con 2 con 3)"
+    --n = productZ (sub0 (varZ 2 `con` neg (varZ 3)) 4) $ varZ 4--neg (varZ 1 `con` varZ 2 `con` varZ 3)
+
+    --as= "neg 4"
+    --a = neg (varZ 4)
+    --bs = "neg neg 4"
+    --b = neg (neg (varZ 4))
     as = "neg 1 con neg 3"
     a = neg ( varZ 1) `con` neg ( varZ 3)
     bs = "neg 1 con neg 3, s = neg 1"
@@ -261,8 +278,22 @@ giveDebugTex = concat [
     c = restrictSet (neg ( varZ 1) `con` neg ( varZ 3)) [(2, True)]
     ds = "sub0 (neg 1 con neg 3) 1"
     d = sub0 (neg ( varZ 1) `con` neg ( varZ 3)) 1
-    es = "sub1 (neg 1 con neg 3) 1"
-    e = sub1 (neg ( varZ 1) `con` neg ( varZ 3)) 1
+    d2s = "sub1 (neg 1 con neg 3) 1"
+    d2 = sub1 (neg ( varZ 1) `con` neg ( varZ 3)) 1
+
+    es = "exists\\_2 (neg 3 con 2)"
+    e = exists 2 ((neg $ varZ 3) `con` varZ 2)
+    fs = "bdd: exists\\_2 (neg 3 con 2)"
+    f = exists 2 ((neg $ var 3) `con` var 2)
+    f2s = "conversion: exists\\_2 (neg 3 con 2)"
+    f2 = createZddFromBdd (exists 2 ((neg $ var 3) `con` var 2))
+    ys = "forall\\_2 (neg (neg 3 con 2))"
+    y = forall 2 (neg ((neg $ varZ 3) `con` varZ 2))
+    zs = "bdd: forall\\_2 (neg (neg 3 con 2))"
+    z = forall 2 (neg ((neg $ var 3) `con` var 2))
+    z2s = "conversion: forall\\_2 (neg (neg 3 con 2))"
+    z2 = createZddFromBdd (forall 2 (neg ((neg $ var 3) `con` var 2)))
+    --The forall and exist functions dont work. (exist is implemented as neg-forall-neg x)
 
 
 comparisonTestZddVsBdd :: String

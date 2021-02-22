@@ -19,6 +19,8 @@ import System.IO.Unsafe
 import System.IO.Temp
 import Debug.Trace
 
+onlyZ :: Int -> Dd Z
+onlyZ n = ToDd $ Cudd.Cudd.cuddZddComplement manager (Cudd.Cudd.cuddZddIthVar manager (n-1))
 
 sub0 :: Dd Z -> Int -> Dd Z
 sub0 z n = ToDd $ Cudd.Cudd.cuddZddSub0 manager zmin (n-1) where
@@ -28,6 +30,9 @@ sub1 (ToDd z) n = ToDd $ Cudd.Cudd.cuddZddSub1 manager z (n-1)
 
 productZ :: Dd Z -> Dd Z -> Dd Z
 productZ (ToDd z1) (ToDd z2) = ToDd $ Cudd.Cudd.cuddZddProduct manager z1 z2
+
+complementZ :: Dd Z -> Dd Z 
+complementZ (ToDd z) = ToDd $ Cudd.Cudd.cuddZddComplement manager z
 
 subswap :: Int -> Dd Z -> Int -> Dd Z
 subswap t (ToDd zdd) n
@@ -141,11 +146,11 @@ instance DdF Z where
     ToDd t = topZ
   ifthenelse (ToDd x) (ToDd y) (ToDd z) = ToDd (Cudd.Cudd.cuddZddITE manager x y z)
   exists n zdd =  neg $ forall n $ neg zdd
-  forall n zdd = productZ ((sub0 zdd n) `con` (sub1 zdd n)) topZ
+  forall n zdd = productZ ((sub0 zdd n) `con` (sub1 zdd n)) (onlyZ n)
 
   restrict zdd (n,bit) = if bit 
-    then productZ (sub1 zdd n) topZ `debug` "true"
-  else productZ (sub0 zdd n) topZ `debug` "false"
+    then productZ (sub1 zdd n) (onlyZ n) `debug` "true"
+  else productZ (sub0 zdd n) (onlyZ n) `debug` "false"
   
 
   --Set versions
