@@ -38,7 +38,7 @@ main = do
       initZddVars vocabInts
       let myknsZ = KnSZ (map P vocabInts) (boolZddOf $! lawform) (map (second (map P)) obs)
       
-      hPutStrLn outHandle giveDebugTex
+      --hPutStrLn outHandle giveDebugTex
       hPutStrLn outHandle $ "The law: " ++ ppForm lawform  ++ " \\\\"
 
       when texMode $

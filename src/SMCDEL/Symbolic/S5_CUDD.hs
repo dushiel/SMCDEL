@@ -8,6 +8,8 @@ import SMCDEL.Internal.Help (apply)
 import SMCDEL.Language
 import System.IO.Unsafe
 import Data.List ((\\),delete,dropWhile,dropWhileEnd,intercalate,intersect,nub,sort)
+import Data.Foldable (toList)
+import Data.Sequence (fromList)
 --import Data.Tagged
 import SMCDEL.Internal.TexDisplay
 import System.Process (runInteractiveCommand)
@@ -282,17 +284,17 @@ giveDebugTex = concat [
     d2 = sub1 (neg ( varZ 1) `con` neg ( varZ 3)) 1
 
     es = "exists\\_2 (neg 3 con 2)"
-    e = exists 2 ((neg $ varZ 3) `con` varZ 2)
+    e = exists 2 (neg (varZ 3) `con` varZ 2)
     fs = "bdd: exists\\_2 (neg 3 con 2)"
-    f = exists 2 ((neg $ var 3) `con` var 2)
+    f = exists 2 (neg ( var 3) `con` var 2)
     f2s = "conversion: exists\\_2 (neg 3 con 2)"
-    f2 = createZddFromBdd (exists 2 ((neg $ var 3) `con` var 2))
+    f2 = createZddFromBdd (exists 2 (neg (var 3) `con` var 2))
     ys = "forall\\_2 (neg (neg 3 con 2))"
-    y = forall 2 (neg ((neg $ varZ 3) `con` varZ 2))
+    y = forall 2 (neg (neg (varZ 3) `con` varZ 2))
     zs = "bdd: forall\\_2 (neg (neg 3 con 2))"
-    z = forall 2 (neg ((neg $ var 3) `con` var 2))
+    z = forall 2 (neg (neg (var 3) `con` var 2))
     z2s = "conversion: forall\\_2 (neg (neg 3 con 2))"
-    z2 = createZddFromBdd (forall 2 (neg ((neg $ var 3) `con` var 2)))
+    z2 = createZddFromBdd (forall 2 (neg (neg (var 3) `con` var 2)))
     --The forall and exist functions dont work. (exist is implemented as neg-forall-neg x)
 
 
@@ -307,7 +309,7 @@ comparisonTestZddVsBdd = concat [
     b = exists 2 (varZ 3) `imp` varZ 3
     c = forall 2 (var 3) `imp` var 3
     d = forall 2 (varZ 3) `imp` varZ 3
-    e = neg (varZ 4 `con` (varZ 3 `con` (varZ 2 `con` (varZ 1))))
+    e = neg (varZ 4 `con` (varZ 3 `con` (varZ 2 `con` varZ 1)))
 
 
     
@@ -341,11 +343,11 @@ texDdB d = unsafePerformIO $ do
   xDotText <- L.readFile "tempBdd.dot"
 
   let xDotGraph = parseDotGraphLiberally xDotText :: GraphGen.DotGraph String
-  --let clusteredXDotGraph = clusterMyGraph xDotGraph
-  let updatedXDotGraph = GraphAlg.canonicalise xDotGraph
+  let clusteredXDotGraph = clusterMyGraph xDotGraph
+  let updatedXDotGraph = GraphAlg.canonicalise clusteredXDotGraph
   --L.putStrLn $ renderDot $ toDot xDotGraph 
   --print $ graphNodes updatedXDotGraph
-  -- print updatedXDotGraph
+  print updatedXDotGraph
 
   hPutStr i (B.unpack (renderDot $ toDot updatedXDotGraph) ++ "\n")
   --hPutStr i (returnDot d ++ "\n")
@@ -422,16 +424,15 @@ changeMyGraph dg =
     GraphAttr.Label (GraphAttr.StrLabel s) -> GraphAttr.Label (GraphAttr.StrLabel (B.pack $ show ((read (B.unpack s) :: Int) + 1 )))
     x                  -> x
 
-clusterMyGraph :: DotGraph String -> DotGraph String
+clusterMyGraph :: GraphGen.DotGraph String -> GraphGen.DotGraph String
 clusterMyGraph dg =
-  dg { graphStatements = (graphStatements dg) { nodeStmts = map changeDotNode (nodeStmts (graphStatements dg)) } } where
-  changeDotNode dn = dn { nodeAttributes = map changeNodeAttributes (nodeAttributes dn) }
-  changeNodeAttributes na = case na of
-    -- i am not sold on my usage of the read function here, i do not check whether the string is actually convertable to string and i feel like Text.Lazy has a read function of its own
-    --GraphAttr.Label (GraphAttr.StrLabel s) -> GraphAttr.Label (GraphAttr.StrLabel (B.pack (myShow (read (B.unpack s) :: Int))))
-    GraphAttr.Label (GraphAttr.StrLabel s) -> GraphAttr.Label (GraphAttr.StrLabel (B.pack $ show ((read (B.unpack s) :: Int) + 1 )))
-    x                  -> x
-
+  dg { GraphGen.graphStatements = fromList $ map changeGraphStatement (toList (GraphGen.graphStatements dg)) } where
+    changeGraphStatement gs = case gs of 
+      GraphGen.SG sg -> GraphGen.SG (sg {GraphGen.isCluster = True})--, GraphGen.subGraphStmts = fromList $ map changeVisibility (toList (GraphGen.subGraphStmts sg))}) where
+        --changeVisibility attr = case attr of
+        --  GraphGen.GA ga ->  
+        --  x -> x
+      x -> x
 
 {- subgraph version
 changeMyGraph :: DotGraph String -> DotGraph String

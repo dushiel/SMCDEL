@@ -22,6 +22,9 @@ import Debug.Trace
 onlyZ :: Int -> Dd Z
 onlyZ n = ToDd $ Cudd.Cudd.cuddZddComplement manager (Cudd.Cudd.cuddZddIthVar manager (n-1))
 
+--complementZ :: Dd Z -> Dd Z 
+--complementZ (ToDd z) = ToDd $ Cudd.Cudd.cuddZddComplement manager z
+
 sub0 :: Dd Z -> Int -> Dd Z
 sub0 z n = ToDd $ Cudd.Cudd.cuddZddSub0 manager zmin (n-1) where
   ToDd zmin = z
@@ -30,14 +33,6 @@ sub1 (ToDd z) n = ToDd $ Cudd.Cudd.cuddZddSub1 manager z (n-1)
 
 productZ :: Dd Z -> Dd Z -> Dd Z
 productZ (ToDd z1) (ToDd z2) = ToDd $ Cudd.Cudd.cuddZddProduct manager z1 z2
-
-complementZ :: Dd Z -> Dd Z 
-complementZ (ToDd z) = ToDd $ Cudd.Cudd.cuddZddComplement manager z
-
-subswap :: Int -> Dd Z -> Int -> Dd Z
-subswap t (ToDd zdd) n
-  | t == 0 = ToDd $ Cudd.Cudd.cuddZddChange manager (Cudd.Cudd.cuddZddSub0 manager zdd (n-1)) n
-  | t == 1 = ToDd $ Cudd.Cudd.cuddZddChange manager (Cudd.Cudd.cuddZddSub1 manager zdd (n-1)) n
 
 manager :: Cudd.Cudd.DdManager
 manager = Cudd.Cudd.cuddInit
@@ -221,5 +216,5 @@ createZddFromBdd (ToDd b) = ToDd (Cudd.Cudd.cuddZddPortFromBdd manager b)
 portVars :: IO()
 portVars = Cudd.Cudd.cuddZddVarFromBdd manager
 
-
+debug :: c -> String -> c
 debug = flip trace
