@@ -80,7 +80,7 @@ class DdF a where
   returnDot d = unsafePerformIO $ do
     writeToDot d "hellobdd.dot"
     readFile "hellobdd.dot"
-    {-withSystemTempDirectory "smcdel" $ \tmpdir -> do
+    {-withSystemTempDirectory "smcdel" $ \tmpdir -> unsafePerformIO $ do
       writeToDot d (tmpdir ++ "/temp.dot")
       readFile (tmpdir ++ "/temp.dot")-}
   forceCheckDd :: Dd a -> String -- ugly fix to ensure evaluation of dd

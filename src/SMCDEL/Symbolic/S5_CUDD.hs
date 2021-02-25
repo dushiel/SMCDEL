@@ -127,13 +127,11 @@ validViaBdd kns@(KnS _ lawbdd _) f = top == lawbdd `imp` bddOf kns f
 
 -- ZDD stuff (also see data type declarations above)
 
-
 convertTest :: KnowStruct -> Form -> Bool
 convertTest kns@(KnS _ law _) query = unsafePerformIO $ do
   let q = createZddFromBdd (bddOf kns query)
   let l = createZddFromBdd law
   let r = l `imp` q
-  --printZddInfo q "convertionn result"
   return (r == topZ)
 
 initZddVars :: [Int] -> IO()
@@ -209,6 +207,73 @@ zddOf kns (PubAnnounceW form1 form2) =
 
 zddOf _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
 
+--ZDD in f1s0 form
+
+boolZdds0Of :: Form -> Dd Z
+boolZdds0Of Top           = topZ
+boolZdds0Of Bot           = botZ
+boolZdds0Of (PrpF (P n))  = neg (varZ n)
+boolZdds0Of (Neg form)    = neg (boolZdds0Of form)
+boolZdds0Of (Conj forms)  = conSet $ map boolZdds0Of forms
+boolZdds0Of (Disj forms)  = disSet $ map boolZdds0Of forms
+boolZdds0Of (Impl f g)    = imp (boolZdds0Of f) (boolZdds0Of g)
+boolZdds0Of (Equi f g)    = equ (boolZdds0Of f) (boolZdds0Of g)
+boolZdds0Of (Forall ps f) = forallSet (map fromEnum ps) (boolZdds0Of f)
+boolZdds0Of (Exists ps f) = existsSet (map fromEnum ps) (boolZdds0Of f)
+boolZdds0Of _             = error "boolZdds0Of failed: Not a boolean formula."
+
+zdds0Of :: KnowStruct -> Form -> Dd Z
+zdds0Of _   Top           = topZ
+zdds0Of _   Bot           = botZ
+zdds0Of _   (PrpF (P n))  = neg (varZ n)
+zdds0Of kns (Neg form) = neg (zdds0Of kns form)
+
+zdds0Of kns (Conj forms)  = conSet $ map (zdds0Of kns) forms
+zdds0Of kns (Disj forms)  = disSet $ map (zdds0Of kns) forms
+zdds0Of kns (Xor  forms)  = xorSet $ map (zdds0Of kns) forms
+
+zdds0Of kns (Impl f g)    = imp (zdds0Of kns f) (zdds0Of kns g)
+zdds0Of kns (Equi f g)    = equ (zdds0Of kns f) (zdds0Of kns g)
+
+zdds0Of kns (Forall ps f) = forallSet (map fromEnum ps) (zdds0Of kns f)
+zdds0Of kns (Exists ps f) = existsSet (map fromEnum ps) (zdds0Of kns f)
+
+zdds0Of kns@(KnSZ allprops lawzdd obs) (K i form) =
+  forallSet otherps (imp lawzdd (zdds0Of kns form)) where
+    otherps = map (\(P n) -> n) $ allprops \\ apply obs i
+
+zdds0Of kns@(KnSZ allprops lawzdd obs) (Kw i form) =
+  disSet [ forallSet otherps (imp lawzdd (zdds0Of kns f)) | f <- [form, Neg form] ] where
+    otherps = map (\(P n) -> n) $ allprops \\ apply obs i
+
+zdds0Of kns@(KnSZ allprops lawzdd obs) (Ck ags form) = gfpZ lambda where
+  lambda z = conSet $ zdds0Of kns form : [ forallSet (otherps i) (imp lawzdd z) | i <- ags ]
+  otherps i = map (\(P n) -> n) $ allprops \\ apply obs i
+
+zdds0Of kns (Ckw ags form) = dis (zdds0Of kns (Ck ags form)) (zdds0Of kns (Ck ags (Neg form)))
+
+zdds0Of kns@(KnSZ props _ _) (Announce ags form1 form2) =
+  imp (zdds0Of kns form1) (restrict zdd2 (k,True)) where
+    zdd2  = zdds0Of (announce kns ags form1) form2
+    (P k) = freshp props
+
+zdds0Of kns@(KnSZ props _ _) (AnnounceW ags form1 form2) =
+  ifthenelse (zdds0Of kns form1) zdd2a zdd2b where
+    zdd2a = restrict (zdds0Of (announce kns ags form1) form2) (k,True)
+    zdd2b = restrict (zdds0Of (announce kns ags form1) form2) (k,False)
+    (P k) = freshp props
+
+zdds0Of kns (PubAnnounce form1 form2) = imp (zdds0Of kns form1) newform2 where
+    newform2 = zdds0Of (pubAnnounce kns form1) form2
+
+zdds0Of kns (PubAnnounceW form1 form2) =
+  ifthenelse (zdds0Of kns form1) newform2a newform2b where
+    newform2a = zdds0Of (pubAnnounce kns form1) form2
+    newform2b = zdds0Of (pubAnnounce kns (Neg form1)) form2
+
+zdds0Of _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
+
+
 --------------querying
 
 validViaZdd :: KnowStruct -> Form -> Bool
@@ -221,6 +286,18 @@ evalViaZdd (kns@(KnSZ allprops _ obs),s) f = bool where
        | otherwise = error ("evalViaZdd failed: ZDD leftover:\n" ++ show z)
   z    = restrictSet (zddOf kns f) list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
+
+validViaZdds0 :: KnowStruct -> Form -> Bool
+validViaZdds0 kns@(KnSZ _ lawzdd _) f = topZ == lawzdd `imp` zdds0Of kns f
+
+evalViaZdds0 :: KnowScene -> Form -> Bool
+evalViaZdds0 (kns@(KnSZ allprops _ obs),s) f = bool where
+  bool | z==topZ = True
+       | z==botZ = False
+       | otherwise = error ("evalViaZdds0 failed: ZDD leftover:\n" ++ show z)
+  z    = restrictSet (zdds0Of kns f) list
+  list = [ (n, P n `elem` s) | (P n) <- allprops ]
+
 
 
 --------------Debugging!
@@ -316,21 +393,38 @@ comparisonTestZddVsBdd = concat [
 --------------------------- Texable functionality
 
 
+texDdBWith :: Dd B -> [(String, String)] -> String 
+texDdB d myShow = unsafePerformIO $ do
+  (i,o,_,_) <- runInteractiveCommand "dot2tex --figpreamble=\"\\huge\" --figonly -traw"
+
+  -- replace with B.pack returnDot d, with a clean method for de-IO-ing returnDot (use hGetContents?)
+  writeToDot d "tempBdd2.dot"
+  xDotText <- L.readFile "tempBdd2.dot"
+
+  let xDotGraph = parseDotGraphLiberally xDotText :: DotGen.DotGraph String
+  let renamedXDotGraph = renameMyGraph xDotGraph myShow
+  print renamedXDotGraph
+  
+  hPutStr i (B.unpack (renderDot $ toDot renamedXDotGraph) ++ "\n")
+  
+  hClose i
+  result <- hGetContents o
+  return $ dropWhileEnd isSpace $ dropWhile isSpace result
 
 texDdB :: Dd B -> String 
 texDdB d = unsafePerformIO $ do
   (i,o,_,_) <- runInteractiveCommand "dot2tex --figpreamble=\"\\huge\" --figonly -traw"
 
-  let myShow = [(0, "a"), (1, "b"), (2, "c"), (3, "d")]
+  let myShow = [(" 0 ", "a"), (" 1 ", "b"), (" 2 ", "c"), (" 3 ", "d")]
 
   -- replace with B.pack returnDot d, with a clean method for de-IO-ing returnDot (use hGetContents?)
+  -- also why cant i use -temp directory in DD x functions?
   writeToDot d "tempBdd2.dot"
-
-  let myShow = [(0, "a"), (1, "b"), (2, "c"), (3, "d")] --example myShow
   xDotText <- L.readFile "tempBdd2.dot"
 
   let xDotGraph = parseDotGraphLiberally xDotText :: DotGen.DotGraph String
   let renamedXDotGraph = renameMyGraph xDotGraph myShow
+  print renamedXDotGraph
   
   hPutStr i (B.unpack (renderDot $ toDot renamedXDotGraph) ++ "\n")
   
@@ -346,32 +440,32 @@ texDdZ d = unsafePerformIO $ do
   result <- hGetContents o
   return $ dropWhileEnd isSpace $ dropWhile isSpace result
 
-renameMyGraph :: DotGen.DotGraph String -> [(Int, String)] -> DotGen.DotGraph String
+renameMyGraph :: DotGen.DotGraph String -> [(String, String)] -> DotGen.DotGraph String
 renameMyGraph dg myShow =
-  dg { DotGen.graphStatements = fromList $ map changeGraphStatement (toList (DotGen.graphStatements dg)) } where
-    changeGraphStatement gs = case gs of 
-      DotGen.SG sg -> DotGen.SG (sg {DotGen.subGraphStmts = map renameNodeNames (DotGen.subGraphStmts sg)}) where
+  dg { DotGen.graphStatements = fmap changeGraphStatement (DotGen.graphStatements dg) } where
+    changeGraphStatement gs = case gs of
+      DotGen.SG sg -> DotGen.SG (sg {DotGen.subGraphStmts = fmap renameNodeNames (DotGen.subGraphStmts sg)}) where
         renameNodeNames sgStmt = case sgStmt of
-          DotGen.DN dn -> renameNode dn myShow
-          DotGen.DE de -> renameEdge de myShow
+          DotGen.DN dn -> DotGen.DN (renameNode dn myShow)
+          DotGen.DE de -> DotGen.DE (renameEdge de myShow)
           x -> x
-      DotGen.DE de -> renameEdge de myShow
+      DotGen.DE de -> DotGen.DE (renameEdge de myShow)
       x -> x
 
-renameNode :: DotGen.DotNode n -> [(Int, String)] -> DotGen.DotNode n
-renameNode dn myShow = case Map.fromList myShow Map.!? read ( B.unpack $ DotGen.nodeID dn) of
-  (Just v) -> dn {nodeID = B.pack v } --nodeID is in myShow, thus replace the Int with the proposition
+renameNode :: DotGen.DotNode String -> [(String, String)] -> DotGen.DotNode String
+renameNode dn myShow = case lookup (DotGen.nodeID dn) myShow of
+  (Just v) -> dn { nodeID = v } --nodeID is in myShow, thus replace the Int with the proposition
   Nothing -> dn --otherwise do nothing
-  
-  
-renameEdge :: DotGen.DotEdge n -> [(Int, String)] -> DotGen.DotEdge n
+
+
+renameEdge :: DotGen.DotEdge String -> [(String, String)] -> DotGen.DotEdge String
 -- replace also the node name occurences in the edge statements
-renameEdge de myShow = changeFromNode (changeToNode de myShow) myShow where
-  changeToNode edge dict = case Map.fromList dict Map.!? read ( B.unpack $ DotGen.toNode edge) of
-    (Just v) -> edge {toNode = B.pack v }
+renameEdge de myShow = changeFromNode (changeToNode de) where
+  changeToNode edge = case lookup (DotGen.toNode edge) myShow of
+    (Just v) -> edge {toNode = v }
     Nothing -> edge
-  changeFromNode edge dict = case Map.fromList dict Map.!? read ( B.unpack $ DotGen.fromNode edge) of
-    (Just v) -> edge {fromNode = B.pack v }
+  changeFromNode edge = case lookup (DotGen.fromNode edge) myShow of
+    (Just v) -> edge {fromNode = v }
     Nothing -> edge
 
 instance TexAble KnowStruct where
