@@ -17,13 +17,13 @@ import System.IO (hPutStr, hGetContents, hClose)
 import Data.Char (isSpace)
 --------------------------
 import Data.GraphViz  
---import Text.RE.Tools.Grep
 import qualified Data.Text.Lazy as B
 import qualified Data.Text.Lazy.IO as L
-import qualified Data.GraphViz.Types.Generalised as GraphGen
+import qualified Data.GraphViz.Types.Generalised as DotGen
 import qualified Data.GraphViz.Algorithms as GraphAlg
 import Data.GraphViz.Printing (renderDot)
 import qualified Data.GraphViz.Attributes.Complete as GraphAttr
+import qualified Data.Map as Map
 
 ---------------------------
 import Control.DeepSeq (rnf)
@@ -234,7 +234,7 @@ mudScnInit n m = (KnS vocab law obs, actual) where
   actual = [P 1 .. P m]
 -}
 
-giveDebugTex :: String
+{-giveDebugTex :: String
 giveDebugTex = concat [
   "Testing evalviaZdd (restrict set), see S5\\_CUDD.giveBasicZddTex for implementation.\\\\ \n"
   --,ns, ": \\\\ \\[", giveZddTex n, "\\] \\\\ \n"
@@ -309,48 +309,31 @@ comparisonTestZddVsBdd = concat [
     b = exists 2 (varZ 3) `imp` varZ 3
     c = forall 2 (var 3) `imp` var 3
     d = forall 2 (varZ 3) `imp` varZ 3
-    e = neg (varZ 4 `con` (varZ 3 `con` (varZ 2 `con` varZ 1)))
+    e = neg (varZ 4 `con` (varZ 3 `con` (varZ 2 `con` varZ 1)))-}
 
 
     
 --------------------------- Texable functionality
 
-{-texDdBwith :: (Int -> String) -> Dd B -> String --it decides what the variable names are
-texDdBwith myShow d = unsafePerformIO $ do
-  (i,o,_,_) <- runInteractiveCommand "dot2tex --figpreamble=\"\\huge\" --figonly -traw"
-  hPutStr i (returnDot d ++ "\n")
-  hClose i
 
-  --very ugly method for getting the correct type, find out a method for knowing the type of retur
-  writeToDot d "tempBdd.dot"
-  xDotText <- L.readFile "tempBdd.dot"
-
-  let xDotGraph = parseDotGraphLiberally xDotText :: GraphGen.DotGraph String
-  let updatedXDotGraph = changeMyGraph myShow (GraphAlg.canonicalise xDotGraph)
-  --L.putStrLn $ renderDot $ toDot xDotGraph
-  print $ graphNodes updatedXDotGraph
-  --print $ graphEdges xDotGraph
-
-  result <- hGetContents o
-  return $ dropWhileEnd isSpace $ dropWhile isSpace result-}
 
 texDdB :: Dd B -> String 
 texDdB d = unsafePerformIO $ do
   (i,o,_,_) <- runInteractiveCommand "dot2tex --figpreamble=\"\\huge\" --figonly -traw"
 
+  let myShow = [(0, "a"), (1, "b"), (2, "c"), (3, "d")]
+
   -- replace with B.pack returnDot d, with a clean method for de-IO-ing returnDot (use hGetContents?)
-  --writeToDot d "tempBdd.dot"
-  xDotText <- L.readFile "tempBdd.dot"
+  writeToDot d "tempBdd2.dot"
 
-  let xDotGraph = parseDotGraphLiberally xDotText :: GraphGen.DotGraph String
-  let clusteredXDotGraph = clusterMyGraph xDotGraph
-  let updatedXDotGraph = GraphAlg.canonicalise clusteredXDotGraph
-  --L.putStrLn $ renderDot $ toDot xDotGraph 
-  --print $ graphNodes updatedXDotGraph
-  print updatedXDotGraph
+  let myShow = [(0, "a"), (1, "b"), (2, "c"), (3, "d")] --example myShow
+  xDotText <- L.readFile "tempBdd2.dot"
 
-  hPutStr i (B.unpack (renderDot $ toDot updatedXDotGraph) ++ "\n")
-  --hPutStr i (returnDot d ++ "\n")
+  let xDotGraph = parseDotGraphLiberally xDotText :: DotGen.DotGraph String
+  let renamedXDotGraph = renameMyGraph xDotGraph myShow
+  
+  hPutStr i (B.unpack (renderDot $ toDot renamedXDotGraph) ++ "\n")
+  
   hClose i
   result <- hGetContents o
   return $ dropWhileEnd isSpace $ dropWhile isSpace result
@@ -363,13 +346,33 @@ texDdZ d = unsafePerformIO $ do
   result <- hGetContents o
   return $ dropWhileEnd isSpace $ dropWhile isSpace result
 
---texBDD :: Bdd -> String
---texBDD = texBddWith show
+renameMyGraph :: DotGen.DotGraph String -> [(Int, String)] -> DotGen.DotGraph String
+renameMyGraph dg myShow =
+  dg { DotGen.graphStatements = fromList $ map changeGraphStatement (toList (DotGen.graphStatements dg)) } where
+    changeGraphStatement gs = case gs of 
+      DotGen.SG sg -> DotGen.SG (sg {DotGen.subGraphStmts = map renameNodeNames (DotGen.subGraphStmts sg)}) where
+        renameNodeNames sgStmt = case sgStmt of
+          DotGen.DN dn -> renameNode dn myShow
+          DotGen.DE de -> renameEdge de myShow
+          x -> x
+      DotGen.DE de -> renameEdge de myShow
+      x -> x
 
---newtype WrapBdd = Wrap Bdd
-
---instance TexAble WrapBdd where
---  tex (Wrap b) = texBDD b
+renameNode :: DotGen.DotNode n -> [(Int, String)] -> DotGen.DotNode n
+renameNode dn myShow = case Map.fromList myShow Map.!? read ( B.unpack $ DotGen.nodeID dn) of
+  (Just v) -> dn {nodeID = B.pack v } --nodeID is in myShow, thus replace the Int with the proposition
+  Nothing -> dn --otherwise do nothing
+  
+  
+renameEdge :: DotGen.DotEdge n -> [(Int, String)] -> DotGen.DotEdge n
+-- replace also the node name occurences in the edge statements
+renameEdge de myShow = changeFromNode (changeToNode de myShow) myShow where
+  changeToNode edge dict = case Map.fromList dict Map.!? read ( B.unpack $ DotGen.toNode edge) of
+    (Just v) -> edge {toNode = B.pack v }
+    Nothing -> edge
+  changeFromNode edge dict = case Map.fromList dict Map.!? read ( B.unpack $ DotGen.fromNode edge) of
+    (Just v) -> edge {fromNode = B.pack v }
+    Nothing -> edge
 
 instance TexAble KnowStruct where
   tex (KnS props lawbdd obs) = concat
@@ -414,105 +417,8 @@ giveBddTex b = concat
 portvar :: IO()
 portvar = portVars
 
-changeMyGraph :: DotGraph String -> DotGraph String
-changeMyGraph dg =
-  dg { graphStatements = (graphStatements dg) { nodeStmts = map changeDotNode (nodeStmts (graphStatements dg)) } } where
-  changeDotNode dn = dn { nodeAttributes = map changeNodeAttributes (nodeAttributes dn) }
-  changeNodeAttributes na = case na of
-    -- i am not sold on my usage of the read function here, i do not check whether the string is actually convertable to string and i feel like Text.Lazy has a read function of its own
-    --GraphAttr.Label (GraphAttr.StrLabel s) -> GraphAttr.Label (GraphAttr.StrLabel (B.pack (myShow (read (B.unpack s) :: Int))))
-    GraphAttr.Label (GraphAttr.StrLabel s) -> GraphAttr.Label (GraphAttr.StrLabel (B.pack $ show ((read (B.unpack s) :: Int) + 1 )))
-    x                  -> x
-
-clusterMyGraph :: GraphGen.DotGraph String -> GraphGen.DotGraph String
-clusterMyGraph dg =
-  dg { GraphGen.graphStatements = fromList $ map changeGraphStatement (toList (GraphGen.graphStatements dg)) } where
-    changeGraphStatement gs = case gs of 
-      GraphGen.SG sg -> GraphGen.SG (sg {GraphGen.isCluster = True})--, GraphGen.subGraphStmts = fromList $ map changeVisibility (toList (GraphGen.subGraphStmts sg))}) where
-        --changeVisibility attr = case attr of
-        --  GraphGen.GA ga ->  
-        --  x -> x
-      x -> x
-
-{- subgraph version
-changeMyGraph :: DotGraph String -> DotGraph String
-changeMyGraph dg =
-  dg { graphStatements = (graphStatements dg) { subGraphs = map changeDotNode (subGraphs (graphStatements dg)) } } where
-  changeDotSubGraph dn = dn { nodeAttribbutes = map changeSubGraphAttributes (nodeAttributes dn) }
-  changeSubGraphAttributes na = case na of
-    -- i am not sold on my usage of the read function here, i do not check whether the string is actually convertable to string and i feel like Text.Lazy has a read function of its own
-    --GraphAttr.Label (GraphAttr.StrLabel s) -> GraphAttr.Label (GraphAttr.StrLabel (B.pack (myShow (read (B.unpack s) :: Int))))
-    GraphAttr.Label (GraphAttr.StrLabel s) -> GraphAttr.Label (GraphAttr.StrLabel (B.pack $ show ((read (B.unpack s) :: Int) + 1 )))
-    x                  -> x
-
--}
 
 
 
-{-
-load in the dot file/string given by dump dot, with: format :: String -> String
 
 
-change list:
--remove strict, only digraph
--remove label from rank
--give nodes the labels
--check when and why some nodes do not have boundaries (edge = invis)
--make the dotted lines go to Bot (new node)
--remove edge [dir = none];
--probably remove size = "7.5,10", center = true;
-
-what does x do?:
-- " 2 " -> " 3 " -> "CONST NODES"; 
-- strict
-- the first top node, does it have a purpose?
-
-
-
-example from correct to current:
-
-strict digraph g {
-n0 [label="2",shape="circle"];
-n0 -> Top;
-n0 -> n1 [style=dashed];
-n1 [label="3",shape="circle"];
-n1 -> Top;
-n1 -> Bot [style=dashed];
-Bot [label="0",shape="box"];
-Top [label="1",shape="box"];
-{ rank=same; n0 }
-{ rank=same; n1 }
-}
-
-
-digraph "DD" {
-size = "7.5,10"
-center = true;
-edge [dir = none];
-{ node [shape = plaintext];
-  edge [style = invis];
-  "CONST NODES" [style = invis];
-" 2 " -> " 3 " -> "CONST NODES"; 
-}
-{ rank = same; node [shape = box]; edge [style = invis];
-"F0"; }
-{ rank = same; " 2 ";
-"0x30b";
-}
-{ rank = same; " 3 ";
-"0x30a";
-}
-{ rank = same; "CONST NODES";
-{ node [shape = box]; "0x2da";
-}
-}
-"F0" -> "0x30b" [style = solid];
-"0x30b" -> "0x2da";
-"0x30b" -> "0x30a" [style = dashed];
-"0x30a" -> "0x2da";
-"0x30a" -> "0x2da" [style = dotted];
-"0x2da" [label = "1"];
-}
-
-
--}
