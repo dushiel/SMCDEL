@@ -45,7 +45,7 @@ boolBddOf (Exists ps f) = boolBddOf (foldl singleExists f ps) where
   singleExists g p = Disj [ substit p Top g, substit p Bot g ]
 boolBddOf _             = error "boolBddOf failed: Not a boolean formula."
 
-data KnowStruct = KnS [Prp] !(Dd B) [(Agent,[Prp])] | KnSZ [Prp] !(Dd Z) [(Agent,[Prp])] deriving (Eq,Show)
+data KnowStruct = KnS [Prp] !(Dd B) [(Agent,[Prp])] | KnSZ [Prp] !(Dd Z) [(Agent,[Prp])] | KnSZs0 [Prp] !(Dd Z) [(Agent,[Prp])] deriving (Eq,Show)
 type KnState = [Prp] 
 type KnowScene = (KnowStruct,KnState)
 
@@ -59,6 +59,8 @@ pubAnnounce kns@(KnS props lawbdd obs) psi = KnS props newlawbdd obs where
   newlawbdd = con lawbdd (bddOf kns psi)
 pubAnnounce kns@(KnSZ props lawzdd obs) psi = KnSZ props newlawzdd obs where
   newlawzdd = con lawzdd (zddOf kns psi)
+pubAnnounce kns@(KnSZs0 props lawzdd obs) psi = KnSZs0 props newlawzdd obs where
+  newlawzdd = con lawzdd (zdds0Of kns psi)
 
 announce :: KnowStruct -> [Agent] -> Form -> KnowStruct
 announce kns@(KnS props lawbdd obs) ags psi = KnS newprops newlawbdd newobs where
@@ -70,6 +72,11 @@ announce kns@(KnSZ props lawzdd obs) ags psi = KnSZ newprops newlawzdd newobs wh
   proppsi@(P k) = freshp props
   newprops  = proppsi:props
   newlawzdd = con lawzdd (equ (varZ k) (zddOf kns psi))
+  newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]
+announce kns@(KnSZs0 props lawzdd obs) ags psi = KnSZs0 newprops newlawzdd newobs where
+  proppsi@(P k) = freshp props
+  newprops  = proppsi:props
+  newlawzdd = con lawzdd (equ (varZ k) (zdds0Of kns psi))
   newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]
 
 bddOf :: KnowStruct -> Form -> Dd B 
@@ -110,6 +117,8 @@ bddOf kns (PubAnnounceW form1 form2) =
     newform2a = bddOf (pubAnnounce kns form1) form2
     newform2b = bddOf (pubAnnounce kns (Neg form1)) form2
 bddOf _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
+bddOf (KnSZ _ _ _ ) _ = error "bddOf with a KnSZ"
+bddOf (KnSZs0 _ _ _ ) _ = error "bddOf with a KnSZs0"
 
 evalViaBdd :: KnowScene -> Form -> Bool 
 evalViaBdd (kns@(KnS allprops _ _),s) f = bool where
@@ -118,21 +127,36 @@ evalViaBdd (kns@(KnS allprops _ _),s) f = bool where
        | otherwise = error ("evalViaBdd failed: BDD leftover:\n" ++ show b)
   b    = restrictSet (bddOf kns f) list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
+evalViaBdd ((KnSZ _ _ _ ),_) _ = error "evalViaBdd with a KnSZ"
+evalViaBdd ((KnSZs0 _ _ _ ),_) _ = error "evalViaBdd with a KnSZs0"
 
 instance Semantics KnowScene where
   isTrue = evalViaBdd
 
 validViaBdd :: KnowStruct -> Form -> Bool
 validViaBdd kns@(KnS _ lawbdd _) f = top == lawbdd `imp` bddOf kns f
+validViaBdd (KnSZ _ _ _ ) _ = error "validViaBdd with a KnSZ"
+validViaBdd (KnSZs0 _ _ _ ) _ = error "validViaBdd with a KnSZs0"
 
 -- ZDD stuff (also see data type declarations above)
 
-convertTest :: KnowStruct -> Form -> Bool
-convertTest kns@(KnS _ law _) query = unsafePerformIO $ do
+convertToZdd :: KnowStruct -> Form -> Bool
+convertToZdd kns@(KnS _ law _) query = unsafePerformIO $ do
   let q = createZddFromBdd (bddOf kns query)
   let l = createZddFromBdd law
   let r = l `imp` q
   return (r == topZ)
+convertToZdd (KnSZ _ _ _ ) _ = error "convertToZdd with a KnSZ"
+convertToZdd (KnSZs0 _ _ _ ) _ = error "convertToZdd with a KnSZs0" --add implementation here
+
+convertToZdds0 :: KnowStruct -> Form -> Bool
+convertToZdds0 kns@(KnS _ law _) query = unsafePerformIO $ do
+  let q = createZddFromBdd (bddOf kns query)
+  let l = createZddFromBdd law
+  let r = l `imp` q
+  return (r == topZ)
+convertToZdds0 (KnSZ _ _ _ ) _ = error "convertToZdds0 with a KnSZ" --add implementation here
+convertToZdds0 (KnSZs0 _ _ _ ) _ = error "convertToZdds0 with a KnSZs0"
 
 initZddVars :: [Int] -> IO()
 initZddVars vocab = do
@@ -206,6 +230,8 @@ zddOf kns (PubAnnounceW form1 form2) =
     newform2b = zddOf (pubAnnounce kns (Neg form1)) form2
 
 zddOf _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
+zddOf (KnS _ _ _ ) _ = error "zddOf with a KnS"
+zddOf (KnSZs0 _ _ _ ) _ = error "zddOf with a KnSZs0"
 
 --ZDD in f1s0 form
 
@@ -213,6 +239,7 @@ boolZdds0Of :: Form -> Dd Z
 boolZdds0Of Top           = topZ
 boolZdds0Of Bot           = botZ
 boolZdds0Of (PrpF (P n))  = neg (varZ n)
+boolZdds0Of (Neg (PrpF (P n)))    = varZ n
 boolZdds0Of (Neg form)    = neg (boolZdds0Of form)
 boolZdds0Of (Conj forms)  = conSet $ map boolZdds0Of forms
 boolZdds0Of (Disj forms)  = disSet $ map boolZdds0Of forms
@@ -226,6 +253,7 @@ zdds0Of :: KnowStruct -> Form -> Dd Z
 zdds0Of _   Top           = topZ
 zdds0Of _   Bot           = botZ
 zdds0Of _   (PrpF (P n))  = neg (varZ n)
+zdds0Of kns (Neg (PrpF (P n))) = varZ n
 zdds0Of kns (Neg form) = neg (zdds0Of kns form)
 
 zdds0Of kns (Conj forms)  = conSet $ map (zdds0Of kns) forms
@@ -238,26 +266,26 @@ zdds0Of kns (Equi f g)    = equ (zdds0Of kns f) (zdds0Of kns g)
 zdds0Of kns (Forall ps f) = forallSet (map fromEnum ps) (zdds0Of kns f)
 zdds0Of kns (Exists ps f) = existsSet (map fromEnum ps) (zdds0Of kns f)
 
-zdds0Of kns@(KnSZ allprops lawzdd obs) (K i form) =
+zdds0Of kns@(KnSZs0 allprops lawzdd obs) (K i form) =
   forallSet otherps (imp lawzdd (zdds0Of kns form)) where
     otherps = map (\(P n) -> n) $ allprops \\ apply obs i
 
-zdds0Of kns@(KnSZ allprops lawzdd obs) (Kw i form) =
+zdds0Of kns@(KnSZs0 allprops lawzdd obs) (Kw i form) =
   disSet [ forallSet otherps (imp lawzdd (zdds0Of kns f)) | f <- [form, Neg form] ] where
     otherps = map (\(P n) -> n) $ allprops \\ apply obs i
 
-zdds0Of kns@(KnSZ allprops lawzdd obs) (Ck ags form) = gfpZ lambda where
+zdds0Of kns@(KnSZs0 allprops lawzdd obs) (Ck ags form) = gfpZ lambda where
   lambda z = conSet $ zdds0Of kns form : [ forallSet (otherps i) (imp lawzdd z) | i <- ags ]
   otherps i = map (\(P n) -> n) $ allprops \\ apply obs i
 
 zdds0Of kns (Ckw ags form) = dis (zdds0Of kns (Ck ags form)) (zdds0Of kns (Ck ags (Neg form)))
 
-zdds0Of kns@(KnSZ props _ _) (Announce ags form1 form2) =
+zdds0Of kns@(KnSZs0 props _ _) (Announce ags form1 form2) =
   imp (zdds0Of kns form1) (restrict zdd2 (k,True)) where
     zdd2  = zdds0Of (announce kns ags form1) form2
     (P k) = freshp props
 
-zdds0Of kns@(KnSZ props _ _) (AnnounceW ags form1 form2) =
+zdds0Of kns@(KnSZs0 props _ _) (AnnounceW ags form1 form2) =
   ifthenelse (zdds0Of kns form1) zdd2a zdd2b where
     zdd2a = restrict (zdds0Of (announce kns ags form1) form2) (k,True)
     zdd2b = restrict (zdds0Of (announce kns ags form1) form2) (k,False)
@@ -272,31 +300,38 @@ zdds0Of kns (PubAnnounceW form1 form2) =
     newform2b = zdds0Of (pubAnnounce kns (Neg form1)) form2
 
 zdds0Of _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
+zdds0Of (KnS _ _ _ ) _ = error "zdds0Of with a KnS"
+zdds0Of (KnSZ _ _ _ ) _ = error "zdds0Of with a KnSZ"
 
 
 --------------querying
 
-validViaZdd :: KnowStruct -> Form -> Bool
-validViaZdd kns@(KnSZ _ lawzdd _) f = topZ == lawzdd `imp` zddOf kns f
+validViaDd :: KnowStruct -> Form -> Bool
+validViaDd kns@(KnSZ _ lawzdd _) f = topZ == lawzdd `imp` zddOf kns f
+validViaDd kns@(KnSZs0 _ lawzdd _) f = topZ == lawzdd `imp` zdds0Of kns f
+validViaDd kns@(KnS _ lawbdd _) f = top == lawbdd `imp` bddOf kns f
 
-evalViaZdd :: KnowScene -> Form -> Bool
-evalViaZdd (kns@(KnSZ allprops _ obs),s) f = bool where
+evalViaDd :: KnowScene -> Form -> Bool
+evalViaDd (kns@(KnSZ allprops _ _),s) f = bool where
   bool | z==topZ = True
        | z==botZ = False
-       | otherwise = error ("evalViaZdd failed: ZDD leftover:\n" ++ show z)
+       | otherwise = error ("evalViaDd failed: ZDD leftover:\n" ++ show z)
   z    = restrictSet (zddOf kns f) list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
-
-validViaZdds0 :: KnowStruct -> Form -> Bool
-validViaZdds0 kns@(KnSZ _ lawzdd _) f = topZ == lawzdd `imp` zdds0Of kns f
-
-evalViaZdds0 :: KnowScene -> Form -> Bool
-evalViaZdds0 (kns@(KnSZ allprops _ obs),s) f = bool where
+evalViaDd (kns@(KnSZs0 allprops _ _),s) f = bool where
   bool | z==topZ = True
        | z==botZ = False
-       | otherwise = error ("evalViaZdds0 failed: ZDD leftover:\n" ++ show z)
+       | otherwise = error ("evalViaDd failed: ZDDs0 leftover:\n" ++ show z)
   z    = restrictSet (zdds0Of kns f) list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
+evalViaDd (kns@(KnS allprops _ _),s) f = bool where
+  bool | b==top = True
+       | b==bot = False
+       | otherwise = error ("evalViaDd failed: BDD leftover:\n" ++ show b)
+  b    = restrictSet (bddOf kns f) list
+  list = [ (n, P n `elem` s) | (P n) <- allprops ]
+
+
 
 
 
@@ -394,7 +429,7 @@ comparisonTestZddVsBdd = concat [
 
 
 texDdBWith :: Dd B -> [(String, String)] -> String 
-texDdB d myShow = unsafePerformIO $ do
+texDdBWith d myShow = unsafePerformIO $ do
   (i,o,_,_) <- runInteractiveCommand "dot2tex --figpreamble=\"\\huge\" --figonly -traw"
 
   -- replace with B.pack returnDot d, with a clean method for de-IO-ing returnDot (use hGetContents?)
@@ -403,7 +438,7 @@ texDdB d myShow = unsafePerformIO $ do
 
   let xDotGraph = parseDotGraphLiberally xDotText :: DotGen.DotGraph String
   let renamedXDotGraph = renameMyGraph xDotGraph myShow
-  print renamedXDotGraph
+  --print renamedXDotGraph
   
   hPutStr i (B.unpack (renderDot $ toDot renamedXDotGraph) ++ "\n")
   
@@ -480,6 +515,16 @@ instance TexAble KnowStruct where
     , "\\end{array}\n"
     , " \\right)" ]
   tex (KnSZ props lawzdd obs) = concat
+    [ " \\left( \n"
+    , tex props ++ ", "
+    , " \\begin{array}{l} \\scalebox{0.4}{"
+    , texDdZ lawzdd
+    , "} \\end{array}\n "
+    , ", \\begin{array}{l}\n"
+    , intercalate " \\\\\n " (map (\(_,os) -> tex os) obs)
+    , "\\end{array}\n"
+    , " \\right)" ]
+  tex (KnSZs0 props lawzdd obs) = concat
     [ " \\left( \n"
     , tex props ++ ", "
     , " \\begin{array}{l} \\scalebox{0.4}{"
