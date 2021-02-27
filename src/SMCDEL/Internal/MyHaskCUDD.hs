@@ -15,12 +15,25 @@ module SMCDEL.Internal.MyHaskCUDD (
 ) where
 
 import qualified Cudd.Cudd
-import System.IO.Unsafe
-import System.IO.Temp
-import Debug.Trace
+import System.IO.Unsafe ( unsafePerformIO )
+import System.IO.Temp ( withSystemTempDirectory )
+import Debug.Trace (trace)
+import SMCDEL.Language (Prp)
 
 onlyZ :: Int -> Dd Z
 onlyZ n = ToDd $ Cudd.Cudd.cuddZddComplement manager (Cudd.Cudd.cuddZddIthVar manager (n-1))
+
+onlyZquick :: [Prp] -> Int -> Dd Z --ask malvin about the fmap variant something like $>
+onlyZquick context n = neg $ conPropsExceptVarZ context n
+
+conPropsExceptVarZ :: [Prp] -> Int -> Dd Z  
+conPropsExceptVarZ (n: ns) except 
+  | fromEnum n /= except   = varZ (fromEnum n) `con` conPropsExceptVarZ ns except
+  | fromEnum n == except   = conPropsExceptVarZ ns except
+conPropsExceptVarZ [n] except 
+  | fromEnum n /= except   = varZ (fromEnum n)
+  | fromEnum n == except   = topZ
+conPropsExceptVarZ _ _ = error "empty context list for conPropsExceptVar"
 
 --complementZ :: Dd Z -> Dd Z 
 --complementZ (ToDd z) = ToDd $ Cudd.Cudd.cuddZddComplement manager z
@@ -66,8 +79,12 @@ class DdF a where
   imp :: Dd a -> Dd a -> Dd a
   exists :: Int -> Dd a -> Dd a
   forall :: Int -> Dd a -> Dd a
+  existsQ :: Int -> Dd a -> [Prp] -> Dd a
+  forallQ :: Int -> Dd a -> [Prp] -> Dd a
   existsSet :: [Int] -> Dd a -> Dd a
   forallSet :: [Int] -> Dd a -> Dd a
+  existsSetQ :: [Int] -> Dd a -> [Prp] -> Dd a
+  forallSetQ :: [Int] -> Dd a -> [Prp] -> Dd a
   conSet :: [Dd a] -> Dd a
   disSet :: [Dd a] -> Dd a
   xorSet :: [Dd a] -> Dd a
@@ -100,6 +117,8 @@ instance DdF B where
   forall n (ToDd b) = ToDd $ Cudd.Cudd.cuddBddUnivAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager [n-1])
   restrict (ToDd b) (n,bit) = ToDd $ Cudd.Cudd.cuddBddLICompaction manager b res where
     ToDd res = if bit then var n else neg (var n)
+  existsQ n zdd _ = exists n zdd
+  forallQ n zdd _ = forall n zdd
 
   --set versions
   existsSet [] b = b
@@ -108,6 +127,8 @@ instance DdF B where
   forallSet [] b = b
   forallSet ns (ToDd b) = ToDd $ Cudd.Cudd.cuddBddUnivAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager correctedns)
     where correctedns = map (+(-1)) ns
+  forallSetQ n b _ = forallSet n b
+  existsSetQ n b _ = existsSet n b
   conSet [] = top
   conSet (b:bs) = foldl con b bs
   disSet [] = bot
@@ -137,12 +158,14 @@ instance DdF Z where
   imp (ToDd z1) (ToDd z2) = ToDd $ Cudd.Cudd.cuddZddITE manager z1 z2 t where
     ToDd t = topZ
   ifthenelse (ToDd x) (ToDd y) (ToDd z) = ToDd (Cudd.Cudd.cuddZddITE manager x y z)
-  exists n zdd =  neg $ forall n $ neg zdd
+  exists n zdd =  neg $ forall n $ neg zdd --might be a quicker method possible instead of negating forall
   forall n zdd = productZ ((sub0 zdd n) `con` (sub1 zdd n)) (onlyZ n)
+  existsQ n zdd context =  neg $ forallQ n (neg zdd) context
+  forallQ n zdd context = productZ ((sub0 zdd n) `con` (sub1 zdd n)) (onlyZquick context n)
 
   restrict zdd (n,bit) = if bit 
-    then productZ (sub1 zdd n) (onlyZ n) `debug` "true"
-  else productZ (sub0 zdd n) (onlyZ n) `debug` "false"
+    then productZ (sub1 zdd n) (onlyZ n) --`debug` "true"
+  else productZ (sub0 zdd n) (onlyZ n) --`debug` "false"
   
 
   --Set versions
@@ -152,8 +175,16 @@ instance DdF Z where
     x = forall n z
   existsSet [] _ = error "empty ExistsVar list"
   existsSet [n] z = exists n z
-  existsSet (n:ns) z = x `con` forallSet ns x where 
-    x = forall n z
+  existsSet (n:ns) z = x `con` existsSet ns x where --Here we loose more than 1 variable in our vocabulary!!!!
+    x = exists n z
+  forallSetQ [] _ _ = error "empty UniversalVar list"
+  forallSetQ [n] z context = forallQ n z context
+  forallSetQ (n:ns) z context = x `dis` forallSetQ ns x context where 
+    x = forallQ n z context
+  existsSetQ [] _ _ = error "empty ExistsVar list"
+  existsSetQ [n] z context = existsQ n z context
+  existsSetQ (n:ns) z context = x `con` existsSetQ ns x context where 
+    x = existsQ n z context
   conSet [] = error "empty AND list"
   conSet [z] = z
   conSet (z:zs) = foldl con z zs

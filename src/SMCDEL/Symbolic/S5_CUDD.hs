@@ -8,8 +8,6 @@ import SMCDEL.Internal.Help (apply)
 import SMCDEL.Language
 import System.IO.Unsafe
 import Data.List ((\\),delete,dropWhile,dropWhileEnd,intercalate,intersect,nub,sort)
-import Data.Foldable (toList)
-import Data.Sequence (fromList)
 --import Data.Tagged
 import SMCDEL.Internal.TexDisplay
 import System.Process (runInteractiveCommand)
@@ -20,15 +18,11 @@ import Data.GraphViz
 import qualified Data.Text.Lazy as B
 import qualified Data.Text.Lazy.IO as L
 import qualified Data.GraphViz.Types.Generalised as DotGen
-import qualified Data.GraphViz.Algorithms as GraphAlg
 import Data.GraphViz.Printing (renderDot)
-import qualified Data.GraphViz.Attributes.Complete as GraphAttr
-import qualified Data.Map as Map
 
 ---------------------------
 import Control.DeepSeq (rnf)
-import Data.Typeable
-import Data.Text.Lazy (pack)
+import Data.Typeable()
 
 boolBddOf :: Form -> Dd B 
 boolBddOf Top           = top
@@ -51,6 +45,8 @@ type KnowScene = (KnowStruct,KnState)
 
 instance HasVocab KnowStruct where
   vocabOf (KnS props _ _) = props
+  vocabOf (KnSZ props _ _) = props
+  vocabOf (KnSZs0 props _ _) = props
 
 instance Pointed KnowStruct KnState
 
@@ -140,7 +136,7 @@ validViaBdd (KnSZs0 _ _ _ ) _ = error "validViaBdd with a KnSZs0"
 
 -- ZDD stuff (also see data type declarations above)
 
-convertToZdd :: KnowStruct -> Form -> Bool
+convertToZdd :: KnowStruct -> Form -> Bool --oops change to test again
 convertToZdd kns@(KnS _ law _) query = unsafePerformIO $ do
   let q = createZddFromBdd (bddOf kns query)
   let l = createZddFromBdd law
@@ -151,8 +147,8 @@ convertToZdd (KnSZs0 _ _ _ ) _ = error "convertToZdd with a KnSZs0" --add implem
 
 convertToZdds0 :: KnowStruct -> Form -> Bool
 convertToZdds0 kns@(KnS _ law _) query = unsafePerformIO $ do
-  let q = createZddFromBdd (bddOf kns query)
-  let l = createZddFromBdd law
+  let q = createZddFromBdd $ neg (bddOf kns query)
+  let l = createZddFromBdd $ neg law
   let r = l `imp` q
   return (r == topZ)
 convertToZdds0 (KnSZ _ _ _ ) _ = error "convertToZdds0 with a KnSZ" --add implementation here
@@ -253,7 +249,7 @@ zdds0Of :: KnowStruct -> Form -> Dd Z
 zdds0Of _   Top           = topZ
 zdds0Of _   Bot           = botZ
 zdds0Of _   (PrpF (P n))  = neg (varZ n)
-zdds0Of kns (Neg (PrpF (P n))) = varZ n
+zdds0Of _ (Neg (PrpF (P n))) = varZ n
 zdds0Of kns (Neg form) = neg (zdds0Of kns form)
 
 zdds0Of kns (Conj forms)  = conSet $ map (zdds0Of kns) forms

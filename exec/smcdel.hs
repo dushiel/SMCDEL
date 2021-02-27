@@ -61,14 +61,14 @@ main = do
 doJob :: Handle -> Bool -> KnowStruct -> KnowStruct -> Job -> IO ()
 doJob outHandle True mykns myknsZ (ValidQ f) = do
   hPutStrLn outHandle $ "Is $" ++ texForm (simplify f) ++ "$ valid on $\\mathcal{F}$?\n"
-  hPutStrLn outHandle ("Bdd builder says: " ++ show (validViaBdd mykns f) ++ "\n")
-  hPutStrLn outHandle ("Zdd coverter says: " ++ show (convertTest mykns f) ++ "\n")
-  hPutStrLn outHandle ("Zdd builder says: " ++ show (validViaZdd myknsZ f) ++ "\n")
+  hPutStrLn outHandle ("Bdd builder says: " ++ show (validViaDd mykns f) ++ "\n")
+  hPutStrLn outHandle ("Zdd coverter says: " ++ show (convertToZdd mykns f) ++ "\n")
+  hPutStrLn outHandle ("Zdd builder says: " ++ show (validViaDd myknsZ f) ++ "\n")
 doJob outHandle False mykns myknsZ (ValidQ f) = do
   hPutStrLn outHandle $ "Is " ++ ppForm f ++ " valid on the given structure?\n"
-  vividPutStrLn ("Bdd builder says: " ++ show (validViaBdd mykns f) ++ "\n")
-  vividPutStrLn ("Zdd coverter says: " ++ show (convertTest mykns f) ++ "\n")
-  vividPutStrLn ("Zdd builder says: " ++ show (validViaZdd myknsZ f) ++ "\n")
+  vividPutStrLn ("Bdd builder says: " ++ show (validViaDd mykns f) ++ "\n")
+  vividPutStrLn ("Zdd coverter says: " ++ show (convertToZdd mykns f) ++ "\n")
+  vividPutStrLn ("Zdd builder says: " ++ show (validViaDd myknsZ f) ++ "\n")
 doJob outHandle True mykns myknsZ (WhereQ f) = do
   hPutStrLn outHandle $ "At which states is $" ++ texForm (simplify f) ++ "$ true? $"
   --let states = map tex (whereViaBdd mykns f)
