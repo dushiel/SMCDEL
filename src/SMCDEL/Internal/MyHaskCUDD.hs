@@ -11,7 +11,7 @@ module SMCDEL.Internal.MyHaskCUDD (
   gfp, 
   -- * extra Zdd functionalities
   gfpZ, writeToDot, printDdInfo, differenceZ, portVars, initZddVarsWithInt, topZ, varZ, botZ,
-  createZddFromBdd, forceCheckDd, sub0, sub1, productZ
+  createZddFromBdd, forceCheckDd, sub0, sub1, productZ, complementZ
 ) where
 
 import qualified Cudd.Cudd
@@ -35,8 +35,8 @@ conPropsExceptVarZ [n] except
   | fromEnum n == except   = topZ
 conPropsExceptVarZ _ _ = error "empty context list for conPropsExceptVar"
 
---complementZ :: Dd Z -> Dd Z 
---complementZ (ToDd z) = ToDd $ Cudd.Cudd.cuddZddComplement manager z
+complementZ :: Dd Z -> Dd Z 
+complementZ (ToDd z) = ToDd $ Cudd.Cudd.cuddZddComplement manager z
 
 sub0 :: Dd Z -> Int -> Dd Z
 sub0 z n = ToDd $ Cudd.Cudd.cuddZddSub0 manager zmin (n-1) where
