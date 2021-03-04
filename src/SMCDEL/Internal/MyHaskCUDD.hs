@@ -11,7 +11,7 @@ module SMCDEL.Internal.MyHaskCUDD (
   gfp, 
   -- * extra Zdd functionalities
   gfpZ, writeToDot, printDdInfo, differenceZ, portVars, initZddVarsWithInt, topZ, varZ, botZ,
-  createZddFromBdd, forceCheckDd, sub0, sub1, productZ, complementZ
+  createZddFromBdd, forceCheckDd, sub0, sub1, productZ, complementZ, onlyBothVarZ, onlyNotVarZ
 ) where
 
 import qualified Cudd.Cudd
@@ -20,20 +20,22 @@ import System.IO.Temp ( withSystemTempDirectory )
 import Debug.Trace (trace)
 import SMCDEL.Language (Prp)
 
-onlyZ :: Int -> Dd Z
-onlyZ n = ToDd $ Cudd.Cudd.cuddZddComplement manager (Cudd.Cudd.cuddZddIthVar manager (n-1))
+onlyBothVarZ :: Int -> Dd Z 
+onlyBothVarZ n = complementZ $ neg $ varZ n
 
-onlyZquick :: [Prp] -> Int -> Dd Z --ask malvin about the fmap variant something like $>
-onlyZquick context n = neg $ conPropsExceptVarZ context n
+onlyNotVarZ :: Int -> Dd Z
+onlyNotVarZ n = complementZ $ varZ n
 
-conPropsExceptVarZ :: [Prp] -> Int -> Dd Z  
-conPropsExceptVarZ (n: ns) except 
-  | fromEnum n /= except   = varZ (fromEnum n) `con` conPropsExceptVarZ ns except
-  | fromEnum n == except   = conPropsExceptVarZ ns except
-conPropsExceptVarZ [n] except 
-  | fromEnum n /= except   = varZ (fromEnum n)
-  | fromEnum n == except   = topZ
-conPropsExceptVarZ _ _ = error "empty context list for conPropsExceptVar"
+exceptVarZContext :: [Prp] -> Int -> Dd Z  
+exceptVarZContext [n] except 
+  | fromEnum n /= except   = varZ (fromEnum n) --`debug` "final"
+  | fromEnum n == except   = topZ --`debug` "topZ final"
+exceptVarZContext (n: ns) except 
+  | fromEnum n /= except   = varZ (fromEnum n) `con` exceptVarZContext ns except --`debug` ("passed")
+  | fromEnum n == except   = exceptVarZContext ns except --`debug` ("except " ++ show(except))
+exceptVarZContext _ _ = error "empty context list for conPropsExceptVar"
+
+
 
 complementZ :: Dd Z -> Dd Z 
 complementZ (ToDd z) = ToDd $ Cudd.Cudd.cuddZddComplement manager z
@@ -43,6 +45,8 @@ sub0 z n = ToDd $ Cudd.Cudd.cuddZddSub0 manager zmin (n-1) where
   ToDd zmin = z
 sub1 :: Dd Z -> Int -> Dd Z
 sub1 (ToDd z) n = ToDd $ Cudd.Cudd.cuddZddSub1 manager z (n-1) 
+changeZ :: Dd Z -> Int -> Dd Z 
+changeZ (ToDd z) n = ToDd $ Cudd.Cudd.cuddZddChange manager z (n-1)
 
 productZ :: Dd Z -> Dd Z -> Dd Z
 productZ (ToDd z1) (ToDd z2) = ToDd $ Cudd.Cudd.cuddZddProduct manager z1 z2
@@ -79,12 +83,8 @@ class DdF a where
   imp :: Dd a -> Dd a -> Dd a
   exists :: Int -> Dd a -> Dd a
   forall :: Int -> Dd a -> Dd a
-  existsQ :: Int -> Dd a -> [Prp] -> Dd a
-  forallQ :: Int -> Dd a -> [Prp] -> Dd a
   existsSet :: [Int] -> Dd a -> Dd a
   forallSet :: [Int] -> Dd a -> Dd a
-  existsSetQ :: [Int] -> Dd a -> [Prp] -> Dd a
-  forallSetQ :: [Int] -> Dd a -> [Prp] -> Dd a
   conSet :: [Dd a] -> Dd a
   disSet :: [Dd a] -> Dd a
   xorSet :: [Dd a] -> Dd a
@@ -117,8 +117,6 @@ instance DdF B where
   forall n (ToDd b) = ToDd $ Cudd.Cudd.cuddBddUnivAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager [n-1])
   restrict (ToDd b) (n,bit) = ToDd $ Cudd.Cudd.cuddBddLICompaction manager b res where
     ToDd res = if bit then var n else neg (var n)
-  existsQ n zdd _ = exists n zdd
-  forallQ n zdd _ = forall n zdd
 
   --set versions
   existsSet [] b = b
@@ -127,8 +125,6 @@ instance DdF B where
   forallSet [] b = b
   forallSet ns (ToDd b) = ToDd $ Cudd.Cudd.cuddBddUnivAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager correctedns)
     where correctedns = map (+(-1)) ns
-  forallSetQ n b _ = forallSet n b
-  existsSetQ n b _ = existsSet n b
   conSet [] = top
   conSet (b:bs) = foldl con b bs
   disSet [] = bot
@@ -158,14 +154,17 @@ instance DdF Z where
   imp (ToDd z1) (ToDd z2) = ToDd $ Cudd.Cudd.cuddZddITE manager z1 z2 t where
     ToDd t = topZ
   ifthenelse (ToDd x) (ToDd y) (ToDd z) = ToDd (Cudd.Cudd.cuddZddITE manager x y z)
-  exists n zdd =  neg $ forall n $ neg zdd --might be a quicker method possible instead of negating forall
-  forall n zdd = productZ ((sub0 zdd n) `con` (sub1 zdd n)) (onlyZ n)
-  existsQ n zdd context =  neg $ forallQ n (neg zdd) context
-  forallQ n zdd context = productZ ((sub0 zdd n) `con` (sub1 zdd n)) (onlyZquick context n)
+  exists n  zdd = replaceByTop `dis` replaceByBot where
+    replaceByTop = productZ (sub1 zdd n) (onlyBothVarZ n) `imp` topZ--is this correct?
+    replaceByBot = productZ (sub0 zdd n) (onlyBothVarZ n) `imp` botZ
+
+  forall n zdd = replaceByTop `con` replaceByBot where
+    replaceByTop = productZ (sub1 zdd n) (onlyBothVarZ n) `imp` topZ--is this correct?
+    replaceByBot = productZ (sub0 zdd n) (onlyBothVarZ n) `imp` botZ
 
   restrict zdd (n,bit) = if bit 
-    then productZ (sub1 zdd n) (onlyZ n) --`debug` "true"
-  else productZ (sub0 zdd n) (onlyZ n) --`debug` "false"
+    then ifthenelse (varZ n) zdd botZ --`debug` "true"
+  else ifthenelse (neg $ varZ n) zdd botZ  --`debug` "false" --due to cudd's failure of context mentioning i cannot do productZ (sub0 zdd n) (neg $ onlyZ n)
   
 
   --Set versions
@@ -177,14 +176,7 @@ instance DdF Z where
   existsSet [n] z = exists n z
   existsSet (n:ns) z = x `con` existsSet ns x where --Here we loose more than 1 variable in our vocabulary!!!!
     x = exists n z
-  forallSetQ [] _ _ = error "empty UniversalVar list"
-  forallSetQ [n] z context = forallQ n z context
-  forallSetQ (n:ns) z context = x `dis` forallSetQ ns x context where 
-    x = forallQ n z context
-  existsSetQ [] _ _ = error "empty ExistsVar list"
-  existsSetQ [n] z context = existsQ n z context
-  existsSetQ (n:ns) z context = x `con` existsSetQ ns x context where 
-    x = existsQ n z context
+
   conSet [] = error "empty AND list"
   conSet [z] = z
   conSet (z:zs) = foldl con z zs
