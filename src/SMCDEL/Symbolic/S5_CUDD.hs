@@ -82,13 +82,13 @@ evalViaDd (kns@(KnSZf0 allprops _ _),s) f = bool where
   bool | z==botZ = True
        | z==topZ = False
        | otherwise = error ("evalViaDd failed: ZDDf0 leftover:\n" ++ show z)
-  z    = restrictSet (zddOf kns f) list
+  z    = restrictSet (zddf0Of kns f) list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
 evalViaDd (kns@(KnSZf0s0 allprops _ _),s) f = bool where -- Not done yet!!
   bool | z==botZ = True
        | z==topZ = False
        | otherwise = error ("evalViaDd failed: ZDDf0s0 leftover:\n" ++ show z)
-  z    = restrictSet (zdds0Of kns f) list
+  z    = restrictSet (zddf0s0Of kns f) list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
 
 
@@ -117,13 +117,23 @@ announce kns@(KnSZ props lawzdd obs) ags psi = KnSZ newprops newlawzdd newobs wh
   newprops  = proppsi:props
   newlawzdd = con lawzdd (equ (varZ k) (zddOf kns psi))
   newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]
-{-announce kns@(KnSZs0 props lawzdd obs) ags psi = KnSZs0 newprops newlawzdd newobs where
+announce kns@(KnSZs0 props lawzdd obs) ags psi = KnSZs0 newprops newlawzdd newobs where
   proppsi@(P k) = freshp props
   newprops  = proppsi:props
   newlawzdd = con lawzdd (equ (varZ k) (zdds0Of kns psi))
-  newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]-}
+  newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]
+announce kns@(KnSZf0 props lawzdd obs) ags psi = KnSZs0 newprops newlawzdd newobs where
+  proppsi@(P k) = freshp props
+  newprops  = proppsi:props
+  newlawzdd = dis lawzdd (equ (varZ k) (zddf0Of kns psi))
+  newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]
+announce kns@(KnSZf0s0 props lawzdd obs) ags psi = KnSZs0 newprops newlawzdd newobs where
+  proppsi@(P k) = freshp props
+  newprops  = proppsi:props
+  newlawzdd = dis lawzdd (equ (varZ k) (zddf0s0Of kns psi))
+  newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]
 
-announce _ _ _ = error "announce not implemented yet for other zdd types"
+--announce _ _ _ = error "announce not implemented yet for other zdd types"
 
 
 
@@ -209,18 +219,18 @@ validViaBdd _ _ = error "validViaBdd with wrong kns type"
 -------------- building
 
 
-boolZddOf :: Form -> Dd Z
-boolZddOf Top           = topZ
-boolZddOf Bot           = botZ
-boolZddOf (PrpF (P n))  = varZ n
-boolZddOf (Neg form)    = neg (boolZddOf form)
-boolZddOf (Conj forms)  = conSet $ map boolZddOf forms
-boolZddOf (Disj forms)  = disSet $ map boolZddOf forms
-boolZddOf (Impl f g)    = imp (boolZddOf f) (boolZddOf g)
-boolZddOf (Equi f g)    = equ (boolZddOf f) (boolZddOf g)
-boolZddOf (Forall ps f) = forallSet (map fromEnum ps) (boolZddOf f)
-boolZddOf (Exists ps f) = existsSet (map fromEnum ps) (boolZddOf f)
-boolZddOf _             = error "boolZddOf failed: Not a boolean formula."
+boolZddOf :: [Prp] -> Form -> Dd Z
+boolZddOf _ Top            = topZ
+boolZddOf _ Bot            = botZ
+boolZddOf _ (PrpF (P n))   = varZ n
+boolZddOf c (Neg form)     = neg (boolZddOf c form)
+boolZddOf c (Conj forms)   = conSet $ map (boolZddOf c) forms 
+boolZddOf c (Disj forms)   = disSet $ map (boolZddOf c) forms 
+boolZddOf c (Impl f g)     = imp (boolZddOf c f) (boolZddOf c g)
+boolZddOf c (Equi f g)     = equ (boolZddOf c f) (boolZddOf c g)
+boolZddOf c (Forall ps f)  = forallSetQ (map fromEnum ps) c (boolZddOf c f)
+boolZddOf c (Exists ps f)  = existsSetQ (map fromEnum ps) c (boolZddOf c f)
+boolZddOf _             _ = error "boolZddOf failed: Not a boolean formula."
 
 zddOf :: KnowStruct -> Form -> Dd Z
 zddOf _   Top           = topZ
@@ -235,8 +245,8 @@ zddOf kns (Xor  forms)  = xorSet $ map (zddOf kns) forms
 zddOf kns (Impl f g)    = imp (zddOf kns f) (zddOf kns g)
 zddOf kns (Equi f g)    = equ (zddOf kns f) (zddOf kns g)
 
-zddOf kns (Forall ps f) = forallSet (map fromEnum ps) (zddOf kns f)
-zddOf kns (Exists ps f) = existsSet (map fromEnum ps) (zddOf kns f)
+zddOf kns@(KnSZ c _ _) (Forall ps f) = forallSetQ (map fromEnum ps) c (zddOf kns f)
+zddOf kns@(KnSZ c _ _) (Exists ps f) = existsSetQ (map fromEnum ps) c (zddOf kns f)
 
 zddOf kns@(KnSZ allprops lawzdd obs) (K i form) =
   forallSet otherps (imp lawzdd (zddOf kns form)) where
@@ -373,8 +383,8 @@ zddf0Of kns (Xor  forms)  = xorSet $ map (zddf0Of kns) forms
 zddf0Of kns (Impl f g)    = imp (zddf0Of kns g) (zddf0Of kns f)
 zddf0Of kns (Equi f g)    = equ (zddf0Of kns f) (zddf0Of kns g)
 
-zddf0Of kns (Forall ps f) = existsSet (map fromEnum ps) (zddf0Of kns f)
-zddf0Of kns (Exists ps f) = forallSet (map fromEnum ps) (zddf0Of kns f)
+zddf0Of kns@(KnSZf0 context _ _) (Forall ps f) = existsSetQ (map fromEnum ps) context (zddf0Of kns f)
+zddf0Of kns@(KnSZf0 context _ _) (Exists ps f) = forallSetQ (map fromEnum ps) context (zddf0Of kns f)
 
 zddf0Of kns@(KnSZf0 allprops lawzdd obs) (K i form) =
   forallSet otherps (imp lawzdd (zddf0Of kns form)) where
@@ -547,19 +557,23 @@ giveDebugTex = concat [
   "Testing.\\\\ \n"
   --,ns, ": \\\\ \\[", giveZddTex n, "\\] \\\\ \n"
   --,ms, ": \\\\ \\[", giveZddTex m, "\\] \\\\ \n"
-  --,as, ": \\\\ \\[", giveBddTex a, "\\] \\\\ \n"
-  --,bs, ": \\\\ \\[", giveZddTex b, "\\] \\\\ \n"
-  --,cs, ": \\\\ \\[", giveZddTex c, "\\] \\\\ \n"
+  ,as, ": \\\\ \\[", giveZddTex a, "\\] \\\\ \n"
+  ,bs, ": \\\\ \\[", giveZddTex b, "\\] \\\\ \n"
+  ,cs, ": \\\\ \\[", giveZddTex c, "\\] \\\\ \n"
+  ,a2s, ": \\\\ \\[", giveZddTex a2, "\\] \\\\ \n"
+  ,b2s, ": \\\\ \\[", giveZddTex b2, "\\] \\\\ \n"
+  ,c2s, ": \\\\ \\[", giveZddTex c2, "\\] \\\\ \n"
   --,ds, ": \\\\ \\[", giveZddTex d, "\\] \\\\ \n"
-  ,d2s, ": \\\\ \\[", giveZddTex d2, "\\] \\\\ \n"
+  --,d2s, ": \\\\ \\[", giveZddTex d2, "\\] \\\\ \n"
   --,es, ": \\\\ \\[", giveZddTex e, "\\] \\\\ \n"
-  ,e2s, ": \\\\ \\[", giveZddTex e2, "\\] \\\\ \n"
-  ,fs, ": \\\\ \\[", giveZddTex f, "\\] \\\\ \n"
-  ,gs, ": \\\\ \\[", giveZddTex g, "\\] \\\\ \n"
-  ,hs, ": \\\\ \\[", giveZddTex h, "\\] \\\\ \n"
-  ,is, ": \\\\ \\[", giveZddTex i, "\\] \\\\ \n"
-  ,js, ": \\\\ \\[", giveZddTex j, "\\] \\\\ \n"
-  ,ks, ": \\\\ \\[", giveZddTex k, "\\] \\\\ \n"
+  --,e2s, ": \\\\ \\[", giveZddTex e2, "\\] \\\\ \n"
+  --,e3s, ": \\\\ \\[", giveZddTex e3, "\\] \\\\ \n"
+  --,fs, ": \\\\ \\[", giveZddTex f, "\\] \\\\ \n"
+  --,gs, ": \\\\ \\[", giveZddTex g, "\\] \\\\ \n"
+  --,hs, ": \\\\ \\[", giveZddTex h, "\\] \\\\ \n"
+  --,is, ": \\\\ \\[", giveZddTex i, "\\] \\\\ \n"
+  --,js, ": \\\\ \\[", giveZddTex j, "\\] \\\\ \n"
+  --,ks, ": \\\\ \\[", giveZddTex k, "\\] \\\\ \n"
   --,js, ": \\\\ \\[", giveZddTex j, "\\] \\\\ \n"
   --,f2s, ": \\\\ \\[", giveZddTex f2, "\\] \\\\ \n"
   --,ys, ": \\\\ \\[", giveZddTex y, "\\] \\\\ \n"
@@ -583,31 +597,42 @@ giveDebugTex = concat [
     --ns = "product  (sub0 (2 and neg 3) 4) neg (1 con 2 con 3)"
     --n = productZ (sub0 (varZ 2 `con` neg (varZ 3)) 4) $ varZ 4--neg (varZ 1 `con` varZ 2 `con` varZ 3)
 
-    --is = "only both var 3"
-    --i = onlyBothVarZ 3
-    --js = "only neg var 3"
-    --j = onlyNotVarZ 3
+    --is = "ZDD: var 1"
+    --i = varZ 1
+    --js = "ZDD: only var 1"
+    --j = neg $ varZ 1
 
-    --as = "BDD: (exists 1 ((neg 1 imp ( neg 3) con 2 imp (neg 3)))"
-    --a = exists 1 ((neg $ var 1 `imp` ( neg $ var 3)) `con` (var 2 `imp` (neg $ var 3 )))
-    --bs = "ZDD Conversion: (exists 1 ((neg 1 imp ( neg 3) con 2 imp (neg 3)))"
-    --b = createZddFromBdd (exists 1 ((neg $ var 1 `imp` ( neg $ var 3)) `con` (var 2 `imp` (neg $ var 3 ))))
-    --cs = "ZDD: (exists 1 ((neg 1 imp ( neg 3) con 2 imp (neg 3)))"
-    --c = exists 1 ((neg $ varZ 1 `imp` ( neg $ varZ 3)) `con` (varZ 2 `imp` (neg $ varZ 3 )))
+    as = "ZDD: (2 con neg 1) imp (neg 3)"
+    a = (varZ 2 `con` (neg $ varZ 1)) `imp` (neg $ varZ 3)
+    bs = "ZDD Conversion: Forall 1 ((2 con neg 1) imp (neg 3))"
+    b = createZddFromBdd (forall 1 ((var 2 `con` (neg $ var 1)) `imp` (neg $ var 3)))
+    cs = "ZDD: Forall 1 ((2 con neg 1) imp (neg 3))"
+    c = forallQ 1 (map P [1,2,3]) ((varZ 2 `con` (neg $ varZ 1)) `imp` (neg $ varZ 3))
 
-    ds = "ZDD: sub0 ((neg 1 imp ( neg 3)) con 2 imp (neg 3))"
-    d = sub0 ((neg $ varZ 1 `imp` ( neg $ varZ 3)) `con` (varZ 2 `imp` (neg $ varZ 3 ))) 1 
-    es = "ZDD: product 1 (sub0 ((neg 1 imp ( neg 3)) con 2 imp (neg 3))"
-    e = productZ (sub0 ((neg $ varZ 1 `imp` ( neg $ varZ 3)) `con` (varZ 2 `imp` (neg $ varZ 3 ))) 1 ) (onlyNotVarZ 1)
-    d2s = "ZDD: sub1 ((neg 1 imp ( neg 3)) con 2 imp (neg 3))"
-    d2 = sub1 (((neg $ varZ 1) `imp` ( neg $ varZ 3)) `con` (varZ 2 `imp` (neg $ varZ 3 ))) 1 
-    e2s = "ZDD: product 1 (sub1 ((neg 1 imp ( neg 3)) con 2 imp (neg 3))"
-    e2 = productZ (sub1 (((neg $ varZ 1) `imp` ( neg $ varZ 3)) `con` (varZ 2 `imp` (neg $ varZ 3 ))) 1 ) (onlyNotVarZ 1)
+    a2s = "ZDD: (neg 1 imp ( neg 3)) con (2 imp (neg 3))"
+    a2 = ((neg $ varZ 1) `imp` ( neg $ varZ 3)) `con` (varZ 2 `imp` ((neg $ varZ 3 ) `dis` varZ 1))
+    b2s = "ZDD Conversion: (exists 1 ((neg 1 imp ( neg 3) con 2 imp (neg 3)))"
+    b2 = createZddFromBdd (exists 1 (((neg $ var 1) `imp` ( neg $ var 3)) `con` (var 2 `imp` ((neg $ var 3 ) `dis` var 1))))
+    c2s = "ZDD: (exists 1 ((neg 1 imp ( neg 3) con 2 imp (neg 3)))"
+    c2 = existsQ 1 (map P [1,2,3]) (((neg $ varZ 1) `imp` ( neg $ varZ 3)) `con` (varZ 2 `imp` ((neg $ varZ 3 ) `dis` varZ 1)))
+
+    --ds = "ZDD: sub0 ((neg 1 imp ( neg 3)) con 2 imp (neg 3))"
+    --d = sub0 ((neg $ varZ 1 `imp` ( neg $ varZ 3)) `con` (varZ 2 `imp` (neg $ varZ 3 ))) 1 
+    --d2s = "ZDD: sub1 ((neg 1 imp ( neg 3)) con 2 imp (neg 3))"
+    --d2 = sub1 (((neg $ varZ 1) `imp` ( neg $ varZ 3)) `con` (varZ 2 `imp` (neg $ varZ 3 ))) 1 
+    --e3s = "ZDD: product 1 (sub1 ((neg 1 imp ( neg 3)) con 2 imp (neg 3) imp Top)"
+    --e3 = productZ (sub1 (((neg $ varZ 1) `imp` ( neg $ varZ 3)) `con` (varZ 2 `imp` (neg $ varZ 3 ))) 1 )  (exceptVarZContext (map P [1,2,3]) 1)
+    --e2s = "ZDD: product 1 (sub0 ((neg 1 imp ( neg 3)) con 2 imp (neg 3) imp Bot)"
+    --e2 = productZ (sub0 (((neg $ varZ 1) `imp` ( neg $ varZ 3)) `con` (varZ 2 `imp` (neg $ varZ 3 ))) 1 ) (exceptVarZContext (map P [1,2,3]) 1)
     
-    fs = "ZDD: (neg 1 imp ( neg 3)) con 2 imp (neg 3)"
-    f = (((neg $ varZ 1) `imp` ( neg $ varZ 3)) `con` (varZ 2 `imp` (neg $ varZ 3 )))
-    gs = "ZDD Conv: (neg 1 imp ( neg 3)) con 2 imp (neg 3)"
-    g = createZddFromBdd (((neg $ var 1) `imp` ( neg $ var 3)) `con` (var 2 `imp` (neg $ var 3 )))
+
+    --fs = "ZDD: (neg 1 imp ( neg 3)) con 2 imp (neg 3)"
+    --f = (((neg $ varZ 1) `imp` ( neg $ varZ 3)) `con` (varZ 2 `imp` (neg $ varZ 3 )))
+    --gs = "ZDD Conv: (neg 1 imp ( neg 3)) con 2 imp (neg 3)"
+    --g = createZddFromBdd (((neg $ var 1) `imp` ( neg $ var 3)) `con` (var 2 `imp` (neg $ var 3 )))
+
+    --zs = "ZDD: neg 2 con neg 3 "
+    --z = (neg $ varZ 2) `con` (neg $ varZ 3)
     --hs = "ZDD: (neg 1 imp ( neg 3))" 
     --h = ((neg $ varZ 1) `imp` ( neg $ varZ 3))
     --is = "ZDD Conv: (neg 1 imp ( neg 3))"

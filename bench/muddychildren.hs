@@ -39,7 +39,7 @@ findNumberCacBDD = findNumberWith (cacMudScnInit,SMCDEL.Symbolic.S5.evalViaBdd) 
 findNumberCUDDZ :: Int -> Int -> Int
 findNumberCUDDZ n m = unsafePerformIO $ do
   SMCDEL.Symbolic.S5_CUDD.initZddVars [ 1 .. n ]
-  let cuddMudScnInit x y = ( SMCDEL.Symbolic.S5_CUDD.KnSZ (mudPs x) (SMCDEL.Symbolic.S5_CUDD.boolZddOf Top) [ (show i,delete (P i) (mudPs x)) | i <- [1..x] ], mudPs y )
+  let cuddMudScnInit x y = ( SMCDEL.Symbolic.S5_CUDD.KnSZ (mudPs x) (SMCDEL.Symbolic.S5_CUDD.boolZddOf (mudPs x) Top) [ (show i,delete (P i) (mudPs x)) | i <- [1..x] ], mudPs y )
   let result = findNumberWith (cuddMudScnInit, SMCDEL.Symbolic.S5_CUDD.evalViaDd) n m 
   return result
 

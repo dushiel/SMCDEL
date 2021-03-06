@@ -8,10 +8,10 @@ module SMCDEL.Internal.MyHaskCUDD (
   exists, forall, forallSet, existsSet,
   restrict, restrictSet,
   ifthenelse, returnDot,
-  gfp, 
+  gfp, existsQ, forallQ, forallSetQ, existsSetQ,
   -- * extra Zdd functionalities
   gfpZ, writeToDot, printDdInfo, differenceZ, portVars, initZddVarsWithInt, topZ, varZ, botZ,
-  createZddFromBdd, forceCheckDd, sub0, sub1, productZ, complementZ, onlyBothVarZ, onlyNotVarZ
+  createZddFromBdd, forceCheckDd, sub0, sub1, productZ, complementZ, onlyBothVarZ, onlyNotVarZ, exceptVarZContext
 ) where
 
 import qualified Cudd.Cudd
@@ -28,10 +28,10 @@ onlyNotVarZ n = complementZ $ varZ n
 
 exceptVarZContext :: [Prp] -> Int -> Dd Z  
 exceptVarZContext [n] except 
-  | fromEnum n /= except   = varZ (fromEnum n) --`debug` "final"
+  | fromEnum n /= except   = neg $ varZ (fromEnum n) --`debug` "final"
   | fromEnum n == except   = topZ --`debug` "topZ final"
 exceptVarZContext (n: ns) except 
-  | fromEnum n /= except   = varZ (fromEnum n) `con` exceptVarZContext ns except --`debug` ("passed")
+  | fromEnum n /= except   = (neg $ varZ (fromEnum n)) `con` exceptVarZContext ns except --`debug` ("passed")
   | fromEnum n == except   = exceptVarZContext ns except --`debug` ("except " ++ show(except))
 exceptVarZContext _ _ = error "empty context list for conPropsExceptVar"
 
@@ -45,8 +45,8 @@ sub0 z n = ToDd $ Cudd.Cudd.cuddZddSub0 manager zmin (n-1) where
   ToDd zmin = z
 sub1 :: Dd Z -> Int -> Dd Z
 sub1 (ToDd z) n = ToDd $ Cudd.Cudd.cuddZddSub1 manager z (n-1) 
-changeZ :: Dd Z -> Int -> Dd Z 
-changeZ (ToDd z) n = ToDd $ Cudd.Cudd.cuddZddChange manager z (n-1)
+--changeZ :: Dd Z -> Int -> Dd Z 
+--changeZ (ToDd z) n = ToDd $ Cudd.Cudd.cuddZddChange manager z (n-1)
 
 productZ :: Dd Z -> Dd Z -> Dd Z
 productZ (ToDd z1) (ToDd z2) = ToDd $ Cudd.Cudd.cuddZddProduct manager z1 z2
@@ -83,6 +83,10 @@ class DdF a where
   imp :: Dd a -> Dd a -> Dd a
   exists :: Int -> Dd a -> Dd a
   forall :: Int -> Dd a -> Dd a
+  existsQ :: Int -> [Prp] -> Dd a -> Dd a
+  forallQ :: Int -> [Prp] -> Dd a -> Dd a
+  existsSetQ :: [Int] -> [Prp] -> Dd a -> Dd a
+  forallSetQ :: [Int] -> [Prp] -> Dd a -> Dd a
   existsSet :: [Int] -> Dd a -> Dd a
   forallSet :: [Int] -> Dd a -> Dd a
   conSet :: [Dd a] -> Dd a
@@ -155,12 +159,19 @@ instance DdF Z where
     ToDd t = topZ
   ifthenelse (ToDd x) (ToDd y) (ToDd z) = ToDd (Cudd.Cudd.cuddZddITE manager x y z)
   exists n  zdd = replaceByTop `dis` replaceByBot where
-    replaceByTop = productZ (sub1 zdd n) (onlyBothVarZ n) `imp` topZ--is this correct?
-    replaceByBot = productZ (sub0 zdd n) (onlyBothVarZ n) `imp` botZ
+    replaceByTop = productZ (sub1 zdd n) (onlyBothVarZ n) --is this correct?
+    replaceByBot = productZ (sub0 zdd n) (onlyBothVarZ n) 
 
   forall n zdd = replaceByTop `con` replaceByBot where
-    replaceByTop = productZ (sub1 zdd n) (onlyBothVarZ n) `imp` topZ--is this correct?
-    replaceByBot = productZ (sub0 zdd n) (onlyBothVarZ n) `imp` botZ
+    replaceByTop = productZ (sub1 zdd n) (onlyBothVarZ n) --is this correct?
+    replaceByBot = productZ (sub0 zdd n) (onlyBothVarZ n) 
+
+  existsQ n u zdd = replaceByTop `dis` replaceByBot where
+    replaceByTop = productZ (sub1 zdd n) (exceptVarZContext u n)--is this correct?
+    replaceByBot = productZ (sub0 zdd n) (exceptVarZContext u n)
+  forallQ n u zdd = replaceByTop `con` replaceByBot where
+    replaceByTop = productZ (sub1 zdd n) (exceptVarZContext u n)--is this correct?
+    replaceByBot = productZ (sub0 zdd n) (exceptVarZContext u n)
 
   restrict zdd (n,bit) = if bit 
     then ifthenelse (varZ n) zdd botZ --`debug` "true"
@@ -176,6 +187,14 @@ instance DdF Z where
   existsSet [n] z = exists n z
   existsSet (n:ns) z = x `con` existsSet ns x where --Here we loose more than 1 variable in our vocabulary!!!!
     x = exists n z
+  forallSetQ [] _ _ = error "empty UniversalVar list"
+  forallSetQ [n] v z = forallQ n v z
+  forallSetQ (n:ns) v z = x `dis` forallSetQ ns v x where 
+    x = forallQ n v z
+  existsSetQ [] _ _ = error "empty ExistsVar list"
+  existsSetQ [n] v z = existsQ n v z
+  existsSetQ (n:ns) v z = x `con` existsSetQ ns v x where --Here we loose more than 1 variable in our vocabulary!!!!
+    x = existsQ n v z
 
   conSet [] = error "empty AND list"
   conSet [z] = z
