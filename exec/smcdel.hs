@@ -76,7 +76,7 @@ doJob outHandle True mykns myknsZ myknsZs0 myknsZf0 myknsZf0s0 (ValidQ f) = do
   hPutStrLn outHandle $ "Is $" ++ texForm (simplify f) ++ "$ valid on $\\mathcal{F}$?\n"
   hPutStrLn outHandle ("Bdd says: " ++ show (validViaDd mykns f) ++ "\n")
   hPutStrLn outHandle ("Zdd says: " ++ show (validViaDd myknsZ f) ++ "\n")
-  hPutStrLn outHandle ("f in zdd form: " ++ texDdZ (zddOf myknsZ f))
+  --hPutStrLn outHandle ("f in zdd form: " ++ texDdZ (zddOf myknsZ f))
   hPutStrLn outHandle ("Zdds0 says: " ++ show (validViaDd myknsZs0 f) ++ "\n")
   hPutStrLn outHandle ("Zddf0 says: " ++ show (validViaDd myknsZf0 f) ++ "\n")
   hPutStrLn outHandle ("Zddf0s0 says: " ++ show (validViaDd myknsZf0s0 f) ++ "\n")
@@ -84,7 +84,7 @@ doJob outHandle False mykns myknsZ myknsZs0 myknsZf0 myknsZf0s0 (ValidQ f) = do
   hPutStrLn outHandle $ "Is " ++ ppForm f ++ " valid on the given structure?\n"
   vividPutStrLn ("Bdd says: " ++ show (validViaDd mykns f) ++ "\n")
   vividPutStrLn ("Zdd says: " ++ show (validViaDd myknsZ f) ++ "\n")
-  hPutStrLn outHandle ("f in zdd form: " ++ texDdZ (zddOf myknsZ f))
+  --hPutStrLn outHandle ("f in zdd form: " ++ texDdZ (zddOf myknsZ f))
   vividPutStrLn ("Zdds0 says: " ++ show (validViaDd myknsZs0 f) ++ "\n")
   vividPutStrLn ("Zddf0 says: " ++ show (validViaDd myknsZf0 f) ++ "\n")
   vividPutStrLn ("Zddf0s0 says: " ++ show (validViaDd myknsZf0s0 f) ++ "\n")

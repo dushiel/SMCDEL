@@ -54,10 +54,10 @@ instance Pointed KnowStruct KnState
 
 validViaDd :: KnowStruct -> Form -> Bool
 validViaDd kns@(KnS _ lawbdd _) f = top == lawbdd `imp` bddOf kns f
-validViaDd kns@(KnSZ _ lawzdd _) f = topZ == lawzdd `imp` zddOf kns f
-validViaDd kns@(KnSZs0 _ lawzdd _) f = topZ == lawzdd `imp` zdds0Of kns f
-validViaDd kns@(KnSZf0 _ lawzdd _) f = topZ == zddf0Of kns f `imp` lawzdd
-validViaDd kns@(KnSZf0s0 _ lawzdd _) f = topZ == zddf0s0Of kns f `imp` lawzdd 
+validViaDd kns@(KnSZ _ lawzdd _) f = topZ == lawzdd `imp` ddOf kns f
+validViaDd kns@(KnSZs0 _ lawzdd _) f = topZ == lawzdd `imp` ddOf kns f
+validViaDd kns@(KnSZf0 _ lawzdd _) f = topZ == ddOf kns f `imp` lawzdd
+validViaDd kns@(KnSZf0s0 _ lawzdd _) f = topZ == ddOf kns f `imp` lawzdd 
 
 evalViaDd :: KnowScene -> Form -> Bool
 evalViaDd (kns@(KnS allprops _ _),s) f = bool where
@@ -70,25 +70,25 @@ evalViaDd (kns@(KnSZ allprops _ _),s) f = bool where
   bool | z==topZ = True
        | z==botZ = False
        | otherwise = error ("evalViaDd failed: ZDD leftover:\n" ++ show z)
-  z    = restrictSet (zddOf kns f) list
+  z    = restrictSet (ddOf kns f) list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
 evalViaDd (kns@(KnSZs0 allprops _ _),s) f = bool where -- Not done yet!!
   bool | z==topZ = True
        | z==botZ = False
        | otherwise = error ("evalViaDd failed: ZDDs0 leftover:\n" ++ show z)
-  z    = restrictSet (zdds0Of kns f) list
+  z    = restrictSet (ddOf kns f) list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
 evalViaDd (kns@(KnSZf0 allprops _ _),s) f = bool where
   bool | z==botZ = True
        | z==topZ = False
        | otherwise = error ("evalViaDd failed: ZDDf0 leftover:\n" ++ show z)
-  z    = restrictSet (zddf0Of kns f) list
+  z    = restrictSet (ddOf kns f) list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
 evalViaDd (kns@(KnSZf0s0 allprops _ _),s) f = bool where -- Not done yet!!
   bool | z==botZ = True
        | z==topZ = False
        | otherwise = error ("evalViaDd failed: ZDDf0s0 leftover:\n" ++ show z)
-  z    = restrictSet (zddf0s0Of kns f) list
+  z    = restrictSet (ddOf kns f) list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
 
 
@@ -98,13 +98,13 @@ pubAnnounce :: KnowStruct -> Form -> KnowStruct
 pubAnnounce kns@(KnS props lawbdd obs) psi = KnS props newlawbdd obs where
   newlawbdd = con lawbdd (bddOf kns psi)
 pubAnnounce kns@(KnSZ props lawzdd obs) psi = KnSZ props newlawzdd obs where
-  newlawzdd = con lawzdd (zddOf kns psi)
+  newlawzdd = con lawzdd (ddOf kns psi)
 pubAnnounce kns@(KnSZs0 props lawzdd obs) psi = KnSZs0 props newlawzdd obs where
-  newlawzdd = con lawzdd (zdds0Of kns psi)
+  newlawzdd = con lawzdd (ddOf kns psi)
 pubAnnounce kns@(KnSZf0 props lawzdd obs) psi = KnSZf0 props newlawzdd obs where
-  newlawzdd = con lawzdd (zddf0Of kns psi)
+  newlawzdd = con lawzdd (ddOf kns psi)
 pubAnnounce kns@(KnSZf0s0 props lawzdd obs) psi = KnSZf0s0 props newlawzdd obs where
-  newlawzdd = con lawzdd (zddf0s0Of kns psi)
+  newlawzdd = con lawzdd (ddOf kns psi)
 
 announce :: KnowStruct -> [Agent] -> Form -> KnowStruct
 announce kns@(KnS props lawbdd obs) ags psi = KnS newprops newlawbdd newobs where
@@ -112,25 +112,27 @@ announce kns@(KnS props lawbdd obs) ags psi = KnS newprops newlawbdd newobs wher
   newprops  = proppsi:props
   newlawbdd = con lawbdd (equ (var k) (bddOf kns psi))
   newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]
+
 announce kns@(KnSZ props lawzdd obs) ags psi = KnSZ newprops newlawzdd newobs where
   proppsi@(P k) = freshp props
   newprops  = proppsi:props
-  newlawzdd = con lawzdd (equ (varZ k) (zddOf kns psi))
+  newlawzdd = con lawzdd (equ (varZ k) (ddOf kns psi))
   newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]
 announce kns@(KnSZs0 props lawzdd obs) ags psi = KnSZs0 newprops newlawzdd newobs where
   proppsi@(P k) = freshp props
   newprops  = proppsi:props
-  newlawzdd = con lawzdd (equ (varZ k) (zdds0Of kns psi))
+  newlawzdd = con lawzdd (equ (varZ k) (ddOf kns psi))
   newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]
+
 announce kns@(KnSZf0 props lawzdd obs) ags psi = KnSZs0 newprops newlawzdd newobs where
   proppsi@(P k) = freshp props
   newprops  = proppsi:props
-  newlawzdd = dis lawzdd (equ (varZ k) (zddf0Of kns psi))
+  newlawzdd = dis lawzdd (equ (varZ k) (ddOf kns psi))
   newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]
 announce kns@(KnSZf0s0 props lawzdd obs) ags psi = KnSZs0 newprops newlawzdd newobs where
   proppsi@(P k) = freshp props
   newprops  = proppsi:props
-  newlawzdd = dis lawzdd (equ (varZ k) (zddf0s0Of kns psi))
+  newlawzdd = dis lawzdd (equ (varZ k) (ddOf kns psi))
   newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]
 
 --announce _ _ _ = error "announce not implemented yet for other zdd types"
@@ -232,60 +234,6 @@ boolZddOf c (Forall ps f)  = forallSetQ (map fromEnum ps) c (boolZddOf c f)
 boolZddOf c (Exists ps f)  = existsSetQ (map fromEnum ps) c (boolZddOf c f)
 boolZddOf _             _ = error "boolZddOf failed: Not a boolean formula."
 
-zddOf :: KnowStruct -> Form -> Dd Z
-zddOf _   Top           = topZ
-zddOf _   Bot           = botZ
-zddOf _   (PrpF (P n))  = varZ n
-zddOf kns (Neg form) = neg (zddOf kns form)
-
-zddOf kns (Conj forms)  = conSet $ map (zddOf kns) forms
-zddOf kns (Disj forms)  = disSet $ map (zddOf kns) forms
-zddOf kns (Xor  forms)  = xorSet $ map (zddOf kns) forms
-
-zddOf kns (Impl f g)    = imp (zddOf kns f) (zddOf kns g)
-zddOf kns (Equi f g)    = equ (zddOf kns f) (zddOf kns g)
-
-zddOf kns@(KnSZ c _ _) (Forall ps f) = forallSetQ (map fromEnum ps) c (zddOf kns f)
-zddOf kns@(KnSZ c _ _) (Exists ps f) = existsSetQ (map fromEnum ps) c (zddOf kns f)
-
-zddOf kns@(KnSZ allprops lawzdd obs) (K i form) =
-  forallSet otherps (imp lawzdd (zddOf kns form)) where
-    otherps = map (\(P n) -> n) $ allprops \\ apply obs i
-
-zddOf kns@(KnSZ allprops lawzdd obs) (Kw i form) =
-  disSet [ forallSet otherps (imp lawzdd (zddOf kns f)) | f <- [form, Neg form] ] where
-    otherps = map (\(P n) -> n) $ allprops \\ apply obs i
-
-zddOf kns@(KnSZ allprops lawzdd obs) (Ck ags form) = gfpZ lambda where
-  lambda z = conSet $ zddOf kns form : [ forallSet (otherps i) (imp lawzdd z) | i <- ags ]
-  otherps i = map (\(P n) -> n) $ allprops \\ apply obs i
-
-zddOf kns (Ckw ags form) = dis (zddOf kns (Ck ags form)) (zddOf kns (Ck ags (Neg form)))
-
-zddOf kns@(KnSZ props _ _) (Announce ags form1 form2) =
-  imp (zddOf kns form1) (restrict zdd2 (k,True)) where
-    zdd2  = zddOf (announce kns ags form1) form2
-    (P k) = freshp props
-
-zddOf kns@(KnSZ props _ _) (AnnounceW ags form1 form2) =
-  ifthenelse (zddOf kns form1) zdd2a zdd2b where
-    zdd2a = restrict (zddOf (announce kns ags form1) form2) (k,True)
-    zdd2b = restrict (zddOf (announce kns ags form1) form2) (k,False)
-    (P k) = freshp props
-
-zddOf kns (PubAnnounce form1 form2) = imp (zddOf kns form1) newform2 where
-    newform2 = zddOf (pubAnnounce kns form1) form2
-
-zddOf kns (PubAnnounceW form1 form2) =
-  ifthenelse (zddOf kns form1) newform2a newform2b where
-    newform2a = zddOf (pubAnnounce kns form1) form2
-    newform2b = zddOf (pubAnnounce kns (Neg form1)) form2
-
-zddOf _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
-zddOf _ _ = error "zddOf with a wrong kns type"
-
---ZDD in f1s0 form
-
 boolZdds0Of :: Form -> Dd Z
 boolZdds0Of Top           = topZ
 boolZdds0Of Bot           = botZ
@@ -300,60 +248,6 @@ boolZdds0Of (Forall ps f) = forallSet (map fromEnum ps) (boolZdds0Of f)
 boolZdds0Of (Exists ps f) = existsSet (map fromEnum ps) (boolZdds0Of f)
 boolZdds0Of _             = error "boolZdds0Of failed: Not a boolean formula."
 
-zdds0Of :: KnowStruct -> Form -> Dd Z
-zdds0Of _   Top           = topZ
-zdds0Of _   Bot           = botZ
-zdds0Of _   (PrpF (P n))  = neg (varZ n) -- s0 swaps these
-zdds0Of _ (Neg (PrpF (P n))) = varZ n -- s0 swaps these
-zdds0Of kns (Neg form) = neg (zdds0Of kns form)
-
-zdds0Of kns (Conj forms)  = conSet $ map (zdds0Of kns) forms
-zdds0Of kns (Disj forms)  = disSet $ map (zdds0Of kns) forms
-zdds0Of kns (Xor  forms)  = xorSet $ map (zdds0Of kns) forms
-
-zdds0Of kns (Impl f g)    = imp (zdds0Of kns f) (zdds0Of kns g)
-zdds0Of kns (Equi f g)    = equ (zdds0Of kns f) (zdds0Of kns g)
-
-zdds0Of kns (Forall ps f) = forallSet (map fromEnum ps) (zdds0Of kns f)
-zdds0Of kns (Exists ps f) = existsSet (map fromEnum ps) (zdds0Of kns f)
-
-zdds0Of kns@(KnSZs0 allprops lawzdd obs) (K i form) =
-  forallSet otherps (imp lawzdd (zdds0Of kns form)) where
-    otherps = map (\(P n) -> n) $ allprops \\ apply obs i
-
-zdds0Of kns@(KnSZs0 allprops lawzdd obs) (Kw i form) =
-  disSet [ forallSet otherps (imp lawzdd (zdds0Of kns f)) | f <- [form, Neg form] ] where
-    otherps = map (\(P n) -> n) $ allprops \\ apply obs i
-
-zdds0Of kns@(KnSZs0 allprops lawzdd obs) (Ck ags form) = gfpZ lambda where
-  lambda z = conSet $ zdds0Of kns form : [ forallSet (otherps i) (imp lawzdd z) | i <- ags ]
-  otherps i = map (\(P n) -> n) $ allprops \\ apply obs i
-
-zdds0Of kns (Ckw ags form) = dis (zdds0Of kns (Ck ags form)) (zdds0Of kns (Ck ags (Neg form)))
-
-zdds0Of kns@(KnSZs0 props _ _) (Announce ags form1 form2) =
-  imp (zdds0Of kns form1) (restrict zdd2 (k,True)) where
-    zdd2  = zdds0Of (announce kns ags form1) form2
-    (P k) = freshp props
-
-zdds0Of kns@(KnSZs0 props _ _) (AnnounceW ags form1 form2) =
-  ifthenelse (zdds0Of kns form1) zdd2a zdd2b where
-    zdd2a = restrict (zdds0Of (announce kns ags form1) form2) (k,True)
-    zdd2b = restrict (zdds0Of (announce kns ags form1) form2) (k,False)
-    (P k) = freshp props
-
-zdds0Of kns (PubAnnounce form1 form2) = imp (zdds0Of kns form1) newform2 where
-    newform2 = zdds0Of (pubAnnounce kns form1) form2
-
-zdds0Of kns (PubAnnounceW form1 form2) =
-  ifthenelse (zdds0Of kns form1) newform2a newform2b where
-    newform2a = zdds0Of (pubAnnounce kns form1) form2
-    newform2b = zdds0Of (pubAnnounce kns (Neg form1)) form2
-
-zdds0Of _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
-zdds0Of _ _ = error "zdds0Of with a wrong kns type"
-
---ZDD in f0s1 form
 
 boolZddf0Of :: Form -> Dd Z
 boolZddf0Of Top           = botZ 
@@ -369,61 +263,6 @@ boolZddf0Of (Forall ps f) = existsSet (map fromEnum ps) (boolZddf0Of f)
 boolZddf0Of (Exists ps f) = forallSet (map fromEnum ps) (boolZddf0Of f)
 boolZddf0Of _             = error "boolZddf0Of failed: Not a boolean formula."
 
-zddf0Of :: KnowStruct -> Form -> Dd Z
-zddf0Of _   Top           = botZ 
-zddf0Of _   Bot           = topZ 
-zddf0Of _   (PrpF (P n))  = neg (varZ n)
-zddf0Of _   (Neg (PrpF (P n)))    = varZ n
-zddf0Of kns (Neg form) = neg (zddf0Of kns form)
-
-zddf0Of kns (Conj forms)  = disSet $ map (zddf0Of kns) forms
-zddf0Of kns (Disj forms)  = conSet $ map (zddf0Of kns) forms
-zddf0Of kns (Xor  forms)  = xorSet $ map (zddf0Of kns) forms
-
-zddf0Of kns (Impl f g)    = imp (zddf0Of kns g) (zddf0Of kns f)
-zddf0Of kns (Equi f g)    = equ (zddf0Of kns f) (zddf0Of kns g)
-
-zddf0Of kns@(KnSZf0 context _ _) (Forall ps f) = existsSetQ (map fromEnum ps) context (zddf0Of kns f)
-zddf0Of kns@(KnSZf0 context _ _) (Exists ps f) = forallSetQ (map fromEnum ps) context (zddf0Of kns f)
-
-zddf0Of kns@(KnSZf0 allprops lawzdd obs) (K i form) =
-  forallSet otherps (imp lawzdd (zddf0Of kns form)) where
-    otherps = map (\(P n) -> n) $ allprops \\ apply obs i
-
-zddf0Of kns@(KnSZf0 allprops lawzdd obs) (Kw i form) =
-  disSet [ forallSet otherps (imp lawzdd (zddf0Of kns f)) | f <- [form, Neg form] ] where
-    otherps = map (\(P n) -> n) $ allprops \\ apply obs i
-
-zddf0Of kns@(KnSZf0 allprops lawzdd obs) (Ck ags form) = gfpZ lambda where
-  lambda z = conSet $ zddf0Of kns form : [ forallSet (otherps i) (imp lawzdd z) | i <- ags ]
-  otherps i = map (\(P n) -> n) $ allprops \\ apply obs i
-
-zddf0Of kns (Ckw ags form) = dis (zddf0Of kns (Ck ags form)) (zddf0Of kns (Ck ags (Neg form)))
-
-zddf0Of kns@(KnSZf0 props _ _) (Announce ags form1 form2) =
-  imp (zddf0Of kns form1) (restrict zdd2 (k,True)) where
-    zdd2  = zddf0Of (announce kns ags form1) form2
-    (P k) = freshp props
-
-zddf0Of kns@(KnSZf0 props _ _) (AnnounceW ags form1 form2) =
-  ifthenelse (zddf0Of kns form1) zdd2a zdd2b where
-    zdd2a = restrict (zddf0Of (announce kns ags form1) form2) (k,True)
-    zdd2b = restrict (zddf0Of (announce kns ags form1) form2) (k,False)
-    (P k) = freshp props
-
-zddf0Of kns (PubAnnounce form1 form2) = imp (zddf0Of kns form1) newform2 where
-    newform2 = zddf0Of (pubAnnounce kns form1) form2
-
-zddf0Of kns (PubAnnounceW form1 form2) =
-  ifthenelse (zddf0Of kns form1) newform2a newform2b where
-    newform2a = zddf0Of (pubAnnounce kns form1) form2
-    newform2b = zddf0Of (pubAnnounce kns (Neg form1)) form2
-
-zddf0Of _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
-zddf0Of _ _ = error "zddf0Of with a wrong kns type"
-
---ZDD in f0s0 form
-
 boolZddf0s0Of :: Form -> Dd Z
 boolZddf0s0Of Top           = botZ 
 boolZddf0s0Of Bot           = topZ 
@@ -437,58 +276,215 @@ boolZddf0s0Of (Forall ps f) = existsSet (map fromEnum ps) (boolZddf0s0Of f)
 boolZddf0s0Of (Exists ps f) = forallSet  (map fromEnum ps) (boolZddf0s0Of f)
 boolZddf0s0Of _             = error "boolZddf0s0Of failed: Not a boolean formula."
 
-zddf0s0Of :: KnowStruct -> Form -> Dd Z
-zddf0s0Of _   Top           = botZ  
-zddf0s0Of _   Bot           = topZ  
-zddf0s0Of _   (PrpF (P n))  = varZ n 
-zddf0s0Of kns (Neg form) = neg (zddf0s0Of kns form)
 
-zddf0s0Of kns (Conj forms)  = disSet $ map (zddf0s0Of kns) forms
-zddf0s0Of kns (Disj forms)  = conSet $ map (zddf0s0Of kns) forms
-zddf0s0Of kns (Xor  forms)  = xorSet $ map (zddf0s0Of kns) forms --euh improve this one
+ddOf :: KnowStruct -> Form -> Dd Z
 
-zddf0s0Of kns (Impl f g)    = imp (zddf0s0Of kns g) (zddf0s0Of kns f) 
-zddf0s0Of kns (Equi f g)    = equ (zddf0s0Of kns f) (zddf0s0Of kns g)
+-- allversions
 
-zddf0s0Of kns (Forall ps f) = existsSet (map fromEnum ps) (zddf0s0Of kns f) --ofcourse also these
-zddf0s0Of kns (Exists ps f) = forallSet (map fromEnum ps) (zddf0s0Of kns f)
+-- ZDD version
+ddOf (KnSZ _ _ _) Top           = topZ
+ddOf (KnSZ _ _ _)    Bot           = botZ
+ddOf (KnSZ _ _ _)    (PrpF (P n))  = varZ n
+ddOf kns@(KnSZ _ _ _)  (Neg form) = neg (ddOf kns form)
+ddOf kns@(KnSZ _ _ _) (Conj forms)  = conSet $ map (ddOf kns) forms
+ddOf kns@(KnSZ _ _ _) (Disj forms)  = disSet $ map (ddOf kns) forms
+ddOf kns@(KnSZ _ _ _) (Xor  forms)  = xorSet $ map (ddOf kns) forms
 
-zddf0s0Of kns@(KnSZf0s0 allprops lawzdd obs) (K i form) =
-  forallSet otherps (imp lawzdd (zddf0s0Of kns form)) where
+ddOf kns@(KnSZ _ _ _) (Impl f g)    = imp (ddOf kns f) (ddOf kns g)
+ddOf kns@(KnSZ _ _ _) (Equi f g)    = equ (ddOf kns f) (ddOf kns g)
+
+ddOf kns@(KnSZ c _ _) (Forall ps f) = forallSetQ (map fromEnum ps) c (ddOf kns f)
+ddOf kns@(KnSZ c _ _) (Exists ps f) = existsSetQ (map fromEnum ps) c (ddOf kns f)
+
+ddOf kns@(KnSZ allprops lawzdd obs) (K i form) =
+  forallSet otherps (imp lawzdd (ddOf kns form)) where
     otherps = map (\(P n) -> n) $ allprops \\ apply obs i
 
-zddf0s0Of kns@(KnSZf0s0 allprops lawzdd obs) (Kw i form) =
-  disSet [ forallSet otherps (imp lawzdd (zddf0s0Of kns f)) | f <- [form, Neg form] ] where
+ddOf kns@(KnSZ allprops lawzdd obs) (Kw i form) =
+  disSet [ forallSet otherps (imp lawzdd (ddOf kns f)) | f <- [form, Neg form] ] where
     otherps = map (\(P n) -> n) $ allprops \\ apply obs i
 
-zddf0s0Of kns@(KnSZf0s0 allprops lawzdd obs) (Ck ags form) = gfpZ lambda where
-  lambda z = conSet $ zddf0s0Of kns form : [ forallSet (otherps i) (imp lawzdd z) | i <- ags ]
+ddOf kns@(KnSZ allprops lawzdd obs) (Ck ags form) = gfpZ lambda where
+  lambda z = conSet $ ddOf kns form : [ forallSet (otherps i) (imp lawzdd z) | i <- ags ]
   otherps i = map (\(P n) -> n) $ allprops \\ apply obs i
 
-zddf0s0Of kns (Ckw ags form) = dis (zddf0s0Of kns (Ck ags form)) (zddf0s0Of kns (Ck ags (Neg form)))
+ddOf kns@(KnSZ _ _ _) (Ckw ags form) = dis (ddOf kns (Ck ags form)) (ddOf kns (Ck ags (Neg form)))
 
-zddf0s0Of kns@(KnSZf0s0 props _ _) (Announce ags form1 form2) =
-  imp (zddf0s0Of kns form1) (restrict zdd2 (k,True)) where
-    zdd2  = zddf0s0Of (announce kns ags form1) form2
+ddOf kns@(KnSZ props _ _) (Announce ags form1 form2) =
+  imp (ddOf kns form1) (restrict zdd2 (k,True)) where
+    zdd2  = ddOf (announce kns ags form1) form2
     (P k) = freshp props
 
-zddf0s0Of kns@(KnSZf0s0 props _ _) (AnnounceW ags form1 form2) =
-  ifthenelse (zddf0s0Of kns form1) zdd2a zdd2b where
-    zdd2a = restrict (zddf0s0Of (announce kns ags form1) form2) (k,True)
-    zdd2b = restrict (zddf0s0Of (announce kns ags form1) form2) (k,False)
+ddOf kns@(KnSZ props _ _) (AnnounceW ags form1 form2) =
+  ifthenelse (ddOf kns form1) zdd2a zdd2b where
+    zdd2a = restrict (ddOf (announce kns ags form1) form2) (k,True)
+    zdd2b = restrict (ddOf (announce kns ags form1) form2) (k,False)
     (P k) = freshp props
 
-zddf0s0Of kns (PubAnnounce form1 form2) = imp (zddf0s0Of kns form1) newform2 where
-    newform2 = zddf0s0Of (pubAnnounce kns form1) form2
+ddOf kns@(KnSZ _ _ _) (PubAnnounce form1 form2) = imp (ddOf kns form1) newform2 where
+    newform2 = ddOf (pubAnnounce kns form1) form2
 
-zddf0s0Of kns (PubAnnounceW form1 form2) =
-  ifthenelse (zddf0s0Of kns form1) newform2a newform2b where
-    newform2a = zddf0s0Of (pubAnnounce kns form1) form2
-    newform2b = zddf0s0Of (pubAnnounce kns (Neg form1)) form2
+ddOf kns@(KnSZ _ _ _) (PubAnnounceW form1 form2) =
+  ifthenelse (ddOf kns form1) newform2a newform2b where
+    newform2a = ddOf (pubAnnounce kns form1) form2
+    newform2b = ddOf (pubAnnounce kns (Neg form1)) form2
 
-zddf0s0Of _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
-zddf0s0Of _ _ = error "zddf0s0Of with a wrong kns type"
 
+--ZDD in f1s0 form
+
+ddOf (KnSZs0 _ _ _)   Top           = topZ
+ddOf (KnSZs0 _ _ _)   Bot           = botZ
+ddOf (KnSZs0 _ _ _)   (PrpF (P n))  = neg (varZ n) -- s0 swaps these
+ddOf (KnSZs0 _ _ _) (Neg (PrpF (P n))) = varZ n -- s0 swaps these
+ddOf kns@(KnSZs0 _ _ _) (Neg form) = neg (ddOf kns form)
+
+ddOf kns@(KnSZs0 _ _ _) (Conj forms)  = conSet $ map (ddOf kns) forms
+ddOf kns@(KnSZs0 _ _ _) (Disj forms)  = disSet $ map (ddOf kns) forms
+ddOf kns@(KnSZs0 _ _ _) (Xor  forms)  = xorSet $ map (ddOf kns) forms
+
+ddOf kns@(KnSZs0 _ _ _) (Impl f g)    = imp (ddOf kns f) (ddOf kns g)
+ddOf kns@(KnSZs0 _ _ _) (Equi f g)    = equ (ddOf kns f) (ddOf kns g)
+
+ddOf kns@(KnSZs0 _ _ _) (Forall ps f) = forallSet (map fromEnum ps) (ddOf kns f)
+ddOf kns@(KnSZs0 _ _ _) (Exists ps f) = existsSet (map fromEnum ps) (ddOf kns f)
+
+ddOf kns@(KnSZs0 allprops lawzdd obs) (K i form) =
+  forallSet otherps (imp lawzdd (ddOf kns form)) where
+    otherps = map (\(P n) -> n) $ allprops \\ apply obs i
+
+ddOf kns@(KnSZs0 allprops lawzdd obs) (Kw i form) =
+  disSet [ forallSet otherps (imp lawzdd (ddOf kns f)) | f <- [form, Neg form] ] where
+    otherps = map (\(P n) -> n) $ allprops \\ apply obs i
+
+ddOf kns@(KnSZs0 allprops lawzdd obs) (Ck ags form) = gfpZ lambda where
+  lambda z = conSet $ ddOf kns form : [ forallSet (otherps i) (imp lawzdd z) | i <- ags ]
+  otherps i = map (\(P n) -> n) $ allprops \\ apply obs i
+
+ddOf kns@(KnSZs0 _ _ _) (Ckw ags form) = dis (ddOf kns (Ck ags form)) (ddOf kns (Ck ags (Neg form)))
+
+ddOf kns@(KnSZs0 props _ _) (Announce ags form1 form2) =
+  imp (ddOf kns form1) (restrict zdd2 (k,True)) where
+    zdd2  = ddOf (announce kns ags form1) form2
+    (P k) = freshp props
+
+ddOf kns@(KnSZs0 props _ _) (AnnounceW ags form1 form2) =
+  ifthenelse (ddOf kns form1) zdd2a zdd2b where
+    zdd2a = restrict (ddOf (announce kns ags form1) form2) (k,True)
+    zdd2b = restrict (ddOf (announce kns ags form1) form2) (k,False)
+    (P k) = freshp props
+
+ddOf kns@(KnSZs0 _ _ _) (PubAnnounce form1 form2) = imp (ddOf kns form1) newform2 where
+    newform2 = ddOf (pubAnnounce kns form1) form2
+
+ddOf kns@(KnSZs0 _ _ _) (PubAnnounceW form1 form2) =
+  ifthenelse (ddOf kns form1) newform2a newform2b where
+    newform2a = ddOf (pubAnnounce kns form1) form2
+    newform2b = ddOf (pubAnnounce kns (Neg form1)) form2
+
+
+--ZDD in f0s1 form
+
+ddOf (KnSZf0 _ _ _)   Top           = botZ 
+ddOf (KnSZf0 _ _ _)   Bot           = topZ 
+ddOf (KnSZf0 _ _ _)   (PrpF (P n))  = neg (varZ n)
+ddOf (KnSZf0 _ _ _)   (Neg (PrpF (P n)))    = varZ n
+ddOf kns@(KnSZf0 _ _ _) (Neg form) = neg (ddOf kns form)
+
+ddOf kns@(KnSZf0 _ _ _) (Conj forms)  = disSet $ map (ddOf kns) forms
+ddOf kns@(KnSZf0 _ _ _) (Disj forms)  = conSet $ map (ddOf kns) forms
+ddOf kns@(KnSZf0 _ _ _) (Xor  forms)  = xorSet $ map (ddOf kns) forms
+
+ddOf kns@(KnSZf0 _ _ _) (Impl f g)    = imp (ddOf kns g) (ddOf kns f)
+ddOf kns@(KnSZf0 _ _ _) (Equi f g)    = equ (ddOf kns f) (ddOf kns g)
+
+ddOf kns@(KnSZf0 context _ _) (Forall ps f) = existsSetQ (map fromEnum ps) context (ddOf kns f)
+ddOf kns@(KnSZf0 context _ _) (Exists ps f) = forallSetQ (map fromEnum ps) context (ddOf kns f)
+
+ddOf kns@(KnSZf0 allprops lawzdd obs) (K i form) =
+  forallSet otherps (imp lawzdd (ddOf kns form)) where
+    otherps = map (\(P n) -> n) $ allprops \\ apply obs i
+
+ddOf kns@(KnSZf0 allprops lawzdd obs) (Kw i form) =
+  disSet [ forallSet otherps (imp lawzdd (ddOf kns f)) | f <- [form, Neg form] ] where
+    otherps = map (\(P n) -> n) $ allprops \\ apply obs i
+
+ddOf kns@(KnSZf0 allprops lawzdd obs) (Ck ags form) = gfpZ lambda where
+  lambda z = conSet $ ddOf kns form : [ forallSet (otherps i) (imp lawzdd z) | i <- ags ]
+  otherps i = map (\(P n) -> n) $ allprops \\ apply obs i
+
+ddOf kns@(KnSZf0 _ _ _) (Ckw ags form) = dis (ddOf kns (Ck ags form)) (ddOf kns (Ck ags (Neg form)))
+
+ddOf kns@(KnSZf0 props _ _) (Announce ags form1 form2) =
+  imp (ddOf kns form1) (restrict zdd2 (k,True)) where
+    zdd2  = ddOf (announce kns ags form1) form2
+    (P k) = freshp props
+
+ddOf kns@(KnSZf0 props _ _) (AnnounceW ags form1 form2) =
+  ifthenelse (ddOf kns form1) zdd2a zdd2b where
+    zdd2a = restrict (ddOf (announce kns ags form1) form2) (k,True)
+    zdd2b = restrict (ddOf (announce kns ags form1) form2) (k,False)
+    (P k) = freshp props
+
+ddOf kns@(KnSZf0 _ _ _) (PubAnnounce form1 form2) = imp (ddOf kns form1) newform2 where
+    newform2 = ddOf (pubAnnounce kns form1) form2
+
+ddOf kns@(KnSZf0 _ _ _) (PubAnnounceW form1 form2) =
+  ifthenelse (ddOf kns form1) newform2a newform2b where
+    newform2a = ddOf (pubAnnounce kns form1) form2
+    newform2b = ddOf (pubAnnounce kns (Neg form1)) form2
+
+--ZDD in f0s0 form
+
+ddOf (KnSZf0s0 _ _ _)   Top           = botZ  
+ddOf (KnSZf0s0 _ _ _)   Bot           = topZ  
+ddOf (KnSZf0s0 _ _ _)   (PrpF (P n))  = varZ n 
+ddOf kns@(KnSZf0s0 _ _ _) (Neg form) = neg (ddOf kns form)
+
+ddOf kns@(KnSZf0s0 _ _ _) (Conj forms)  = disSet $ map (ddOf kns) forms
+ddOf kns@(KnSZf0s0 _ _ _) (Disj forms)  = conSet $ map (ddOf kns) forms
+ddOf kns@(KnSZf0s0 _ _ _) (Xor  forms)  = xorSet $ map (ddOf kns) forms --euh improve this one
+
+ddOf kns@(KnSZf0s0 _ _ _) (Impl f g)    = imp (ddOf kns g) (ddOf kns f) 
+ddOf kns@(KnSZf0s0 _ _ _) (Equi f g)    = equ (ddOf kns f) (ddOf kns g)
+
+ddOf kns@(KnSZf0s0 _ _ _) (Forall ps f) = existsSet (map fromEnum ps) (ddOf kns f) --ofcourse also these
+ddOf kns@(KnSZf0s0 _ _ _) (Exists ps f) = forallSet (map fromEnum ps) (ddOf kns f)
+
+ddOf kns@(KnSZf0s0 allprops lawzdd obs) (K i form) =
+  forallSet otherps (imp lawzdd (ddOf kns form)) where
+    otherps = map (\(P n) -> n) $ allprops \\ apply obs i
+
+ddOf kns@(KnSZf0s0 allprops lawzdd obs) (Kw i form) =
+  disSet [ forallSet otherps (imp lawzdd (ddOf kns f)) | f <- [form, Neg form] ] where
+    otherps = map (\(P n) -> n) $ allprops \\ apply obs i
+
+ddOf kns@(KnSZf0s0 allprops lawzdd obs) (Ck ags form) = gfpZ lambda where
+  lambda z = conSet $ ddOf kns form : [ forallSet (otherps i) (imp lawzdd z) | i <- ags ]
+  otherps i = map (\(P n) -> n) $ allprops \\ apply obs i
+
+ddOf kns@(KnSZf0s0 _ _ _) (Ckw ags form) = dis (ddOf kns (Ck ags form)) (ddOf kns (Ck ags (Neg form)))
+
+ddOf kns@(KnSZf0s0 props _ _) (Announce ags form1 form2) =
+  imp (ddOf kns form1) (restrict zdd2 (k,True)) where
+    zdd2  = ddOf (announce kns ags form1) form2
+    (P k) = freshp props
+
+ddOf kns@(KnSZf0s0 props _ _) (AnnounceW ags form1 form2) =
+  ifthenelse (ddOf kns form1) zdd2a zdd2b where
+    zdd2a = restrict (ddOf (announce kns ags form1) form2) (k,True)
+    zdd2b = restrict (ddOf (announce kns ags form1) form2) (k,False)
+    (P k) = freshp props
+
+ddOf kns@(KnSZf0s0 _ _ _) (PubAnnounce form1 form2) = imp (ddOf kns form1) newform2 where
+    newform2 = ddOf (pubAnnounce kns form1) form2
+
+ddOf kns@(KnSZf0s0 _ _ _) (PubAnnounceW form1 form2) =
+  ifthenelse (ddOf kns form1) newform2a newform2b where
+    newform2a = ddOf (pubAnnounce kns form1) form2
+    newform2b = ddOf (pubAnnounce kns (Neg form1)) form2
+
+ddOf _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
+ddOf _ _ = error "zddOf with a wrong kns type"
 
 --Converting between BDD and ZDDs, and other supportive functions
 
