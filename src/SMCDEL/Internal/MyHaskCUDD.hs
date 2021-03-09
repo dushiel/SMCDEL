@@ -11,8 +11,8 @@ module SMCDEL.Internal.MyHaskCUDD (
   gfp, existsQ, forallQ, forallSetQ, existsSetQ,
   -- * extra Zdd functionalities
   gfpZ, writeToDot, printDdInfo, differenceZ, portVars, initZddVarsWithInt, topZ, varZ, botZ,
-  createZddFromBdd, forceCheckDd, sub0, sub1, productZ, complementZ, exceptVarZContext,
-  restrictQ, restrictSetQ
+  createZddFromBdd, forceCheckDd, sub0, sub1, productZ, complementZ, exceptVarZContext, exceptVarZContext2,
+  restrictQ, restrictSetQ, equf0
 ) where
 
 import qualified Cudd.Cudd
@@ -36,7 +36,8 @@ exceptVarZContext (n: ns) except
   | fromEnum n == except   = exceptVarZContext ns except --`debug` ("except " ++ show(except))
 exceptVarZContext _ _ = error "empty context list for conPropsExceptVar"
 
-
+exceptVarZContext2 :: [Prp] -> Int -> Dd Z  
+exceptVarZContext2 _ n = differenceZ topZ (neg $ varZ n)
 
 complementZ :: Dd Z -> Dd Z 
 complementZ (ToDd z) = ToDd $ Cudd.Cudd.cuddZddComplement manager z
@@ -81,6 +82,7 @@ class DdF a where
   dis :: Dd a -> Dd a -> Dd a
   xor :: Dd a -> Dd a -> Dd a
   equ :: Dd a -> Dd a -> Dd a
+  equf0 :: Dd a -> Dd a -> Dd a
   imp :: Dd a -> Dd a -> Dd a
   exists :: Int -> Dd a -> Dd a
   forall :: Int -> Dd a -> Dd a
@@ -158,6 +160,7 @@ instance DdF Z where
     a = differenceZ z1 z2 
     b = differenceZ z2 z1
   equ a b = con (imp a b) (imp b a)
+  equf0 a b = dis (imp a b) (imp b a)
   imp (ToDd z1) (ToDd z2) = ToDd $ Cudd.Cudd.cuddZddITE manager z1 z2 t where
     ToDd t = topZ
   ifthenelse (ToDd x) (ToDd y) (ToDd z) = ToDd (Cudd.Cudd.cuddZddITE manager x y z)

@@ -39,10 +39,10 @@ main = do
       
       initZddVars vocabInts
       let myknsZ = KnSZ (map P vocabInts) (boolZddOf (map P vocabInts) $! lawform) (map (second (map P)) obs)
-      let myknsZs0 = KnSZs0 (map P vocabInts) (boolZdds0Of $! lawform) (map (second (map P)) obs)
+      let myknsZs0 = KnSZs0 (map P vocabInts) (boolZdds0Of (map P vocabInts) $! lawform) (map (second (map P)) obs)
       --let myconv = KnSZ (map P vocabInts) ( createZddFromBdd (boolBddOf $! lawform)) (map (second (map P)) obs)
-      let myknsZf0 = KnSZf0 (map P vocabInts) (boolZddf0Of $! lawform) (map (second (map P)) obs)
-      let myknsZf0s0 = KnSZf0s0 (map P vocabInts) (boolZddf0s0Of $! lawform) (map (second (map P)) obs)
+      let myknsZf0 = KnSZf0 (map P vocabInts) (boolZddf0Of (map P vocabInts) $! lawform) (map (second (map P)) obs)
+      let myknsZf0s0 = KnSZf0s0 (map P vocabInts) (boolZddf0s0Of (map P vocabInts) $! lawform) (map (second (map P)) obs)
       
       --hPutStrLn outHandle giveDebugTex
       if texMode then 
@@ -53,7 +53,7 @@ main = do
       when texMode $
         hPutStrLn outHandle $ unlines
           [ "\\section{Given Knowledge Structure}",
-          "knowledge structure with Bdd:\\", "\\[ (\\mathcal{F},s) = (" ++ tex ((mykns,[])::KnowScene) ++ ") \\]",
+          --"knowledge structure with Bdd:\\", "\\[ (\\mathcal{F},s) = (" ++ tex ((mykns,[])::KnowScene) ++ ") \\]",
           "knowledge structure with Zdd:\\","\\[ (\\mathcal{F},s) = (" ++ tex ((myknsZ,[])::KnowScene) ++ ") \\]", 
           --"knowledge structure coversion to Zdd:\\","\\[ (\\mathcal{F},s) = (" ++ tex ((myconv,[])::KnowScene) ++ ") \\]",
           "knowledge structure with Zdds0:\\","\\[ (\\mathcal{F},s) = (" ++ tex ((myknsZs0,[])::KnowScene) ++ ") \\]", 
