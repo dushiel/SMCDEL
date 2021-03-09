@@ -69,8 +69,8 @@ evalViaDd (kns@(KnS allprops _ _),s) f = bool where
 evalViaDd (kns@(KnSZ allprops _ _),s) f = bool where
   bool | z==topZ = True
        | z==botZ = False
-       | otherwise = error ("evalViaDd failed: ZDD leftover:\n" ++ texDdZ z)
-  z    = restrictSet (ddOf kns f) list
+       | otherwise = error ("evalViaDd failed: ZDD leftover:\n" ++ (texDdZ z))
+  z    = restrictSetQ (ddOf kns f) allprops list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
 evalViaDd (kns@(KnSZs0 allprops _ _),s) f = bool where 
   bool | z==topZ = True
@@ -311,14 +311,14 @@ ddOf kns@(KnSZ allprops lawzdd obs) (Ck ags form) = gfpZ lambda where
 ddOf kns@(KnSZ _ _ _) (Ckw ags form) = dis (ddOf kns (Ck ags form)) (ddOf kns (Ck ags (Neg form)))
 
 ddOf kns@(KnSZ props _ _) (Announce ags form1 form2) =
-  imp (ddOf kns form1) (restrict zdd2 (k,True)) where
+  imp (ddOf kns form1) (restrictQ zdd2 props (k,True)) where
     zdd2  = ddOf (announce kns ags form1) form2
     (P k) = freshp props
 
 ddOf kns@(KnSZ props _ _) (AnnounceW ags form1 form2) =
   ifthenelse (ddOf kns form1) zdd2a zdd2b where
-    zdd2a = restrict (ddOf (announce kns ags form1) form2) (k,True)
-    zdd2b = restrict (ddOf (announce kns ags form1) form2) (k,False)
+    zdd2a = restrictQ (ddOf (announce kns ags form1) form2) props (k,True)
+    zdd2b = restrictQ (ddOf (announce kns ags form1) form2) props (k,False)
     (P k) = freshp props
 
 ddOf kns@(KnSZ _ _ _) (PubAnnounce form1 form2) = imp (ddOf kns form1) newform2 where

@@ -11,7 +11,8 @@ module SMCDEL.Internal.MyHaskCUDD (
   gfp, existsQ, forallQ, forallSetQ, existsSetQ,
   -- * extra Zdd functionalities
   gfpZ, writeToDot, printDdInfo, differenceZ, portVars, initZddVarsWithInt, topZ, varZ, botZ,
-  createZddFromBdd, forceCheckDd, sub0, sub1, productZ, complementZ, onlyBothVarZ, onlyNotVarZ, exceptVarZContext
+  createZddFromBdd, forceCheckDd, sub0, sub1, productZ, complementZ, exceptVarZContext,
+  restrictQ, restrictSetQ
 ) where
 
 import qualified Cudd.Cudd
@@ -20,11 +21,11 @@ import System.IO.Temp ( withSystemTempDirectory )
 import Debug.Trace (trace)
 import SMCDEL.Language (Prp)
 
-onlyBothVarZ :: Int -> Dd Z 
+{-onlyBothVarZ :: Int -> Dd Z 
 onlyBothVarZ n = complementZ $ neg $ varZ n
 
 onlyNotVarZ :: Int -> Dd Z
-onlyNotVarZ n = complementZ $ varZ n
+onlyNotVarZ n = complementZ $ varZ n-}
 
 exceptVarZContext :: [Prp] -> Int -> Dd Z  
 exceptVarZContext [n] except 
@@ -95,6 +96,8 @@ class DdF a where
   ifthenelse :: Dd a -> Dd a -> Dd a -> Dd a
   restrict :: Dd a -> (Int,Bool) -> Dd a
   restrictSet :: Dd a -> [(Int,Bool)] -> Dd a
+  restrictQ :: Dd a -> [Prp] -> (Int,Bool) -> Dd a
+  restrictSetQ :: Dd a -> [Prp] -> [(Int,Bool)] -> Dd a
   writeToDot :: Dd a -> String -> IO()
   printDdInfo :: Dd a -> String -> IO()
   returnDot :: Dd a -> String
@@ -158,13 +161,10 @@ instance DdF Z where
   imp (ToDd z1) (ToDd z2) = ToDd $ Cudd.Cudd.cuddZddITE manager z1 z2 t where
     ToDd t = topZ
   ifthenelse (ToDd x) (ToDd y) (ToDd z) = ToDd (Cudd.Cudd.cuddZddITE manager x y z)
-  exists n  zdd = replaceByTop `dis` replaceByBot where
-    replaceByTop = productZ (sub1 zdd n) (onlyBothVarZ n) --is this correct?
-    replaceByBot = productZ (sub0 zdd n) (onlyBothVarZ n) 
+  exists _ _ = error "exists on zdd needs a context" 
 
-  forall n zdd = replaceByTop `con` replaceByBot where
-    replaceByTop = productZ (sub1 zdd n) (onlyBothVarZ n) --is this correct?
-    replaceByBot = productZ (sub0 zdd n) (onlyBothVarZ n) 
+  forall _ _ = error "forall on zdd needs a context"
+  restrict _ _ = error "restrict on zdd needs a context"
 
   existsQ n u zdd = replaceByTop `dis` replaceByBot where
     replaceByTop = productZ (sub1 zdd n) (exceptVarZContext u n)--is this correct?
@@ -172,10 +172,9 @@ instance DdF Z where
   forallQ n u zdd = replaceByTop `con` replaceByBot where
     replaceByTop = productZ (sub1 zdd n) (exceptVarZContext u n)--is this correct?
     replaceByBot = productZ (sub0 zdd n) (exceptVarZContext u n)
-
-  restrict zdd (n,bit) = if bit 
-    then ifthenelse (varZ n) zdd botZ --`debug` "true"
-  else ifthenelse (neg $ varZ n) zdd botZ  --`debug` "false" --due to cudd's failure of context mentioning i cannot do productZ (sub0 zdd n) (neg $ onlyZ n)
+  restrictQ zdd u (n,bit) = if bit 
+    then productZ (sub1 zdd n) (exceptVarZContext u n) --`debug` "true"
+  else productZ (sub0 zdd n) (exceptVarZContext u n)  --`debug` "false" --due to cudd's failure of context mentioning i cannot do productZ (sub0 zdd n) (neg $ onlyZ n)
   
 
   --Set versions
@@ -195,6 +194,10 @@ instance DdF Z where
   existsSetQ [n] v z = existsQ n v z
   existsSetQ (n:ns) v z = x `con` existsSetQ ns v x where --Here we loose more than 1 variable in our vocabulary!!!!
     x = existsQ n v z
+  restrictSetQ _ _ [] = error "restricting with empty list"
+  restrictSetQ zdd u [n] = restrictQ zdd u n
+  restrictSetQ zdd u (n : ns) = restrictSetQ (restrictQ zdd u n) u ns
+
 
   conSet [] = error "empty AND list"
   conSet [z] = z
@@ -205,9 +208,7 @@ instance DdF Z where
   xorSet [] = error "empty XOR list"
   xorSet [z] = z
   xorSet (z:zs) = foldl xor z zs
-  restrictSet _ [] = error "restricting with empty list"
-  restrictSet zdd [n] = restrict zdd n
-  restrictSet zdd (n : ns) = restrictSet (restrict zdd n) ns
+  restrictSet _ _ = error "restricting for zdd needs a context"
   
 
   --helper functions
