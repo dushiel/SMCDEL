@@ -69,27 +69,27 @@ evalViaDd (kns@(KnS allprops _ _),s) f = bool where
 evalViaDd (kns@(KnSZ allprops _ _),s) f = bool where
   bool | z==topZ = True
        | z==botZ = False
-       | otherwise = error ("evalViaDd failed: ZDD leftover:\n" ++ show z)
+       | otherwise = error ("evalViaDd failed: ZDD leftover:\n" ++ texDdZ z)
   z    = restrictSet (ddOf kns f) list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
-evalViaDd (kns@(KnSZs0 allprops _ _),s) f = bool where -- Not done yet!!
+evalViaDd (kns@(KnSZs0 allprops _ _),s) f = bool where 
   bool | z==topZ = True
        | z==botZ = False
-       | otherwise = error ("evalViaDd failed: ZDDs0 leftover:\n" ++ show z)
+       | otherwise = error ("evalViaDd failed: ZDDs0 leftover:\n" ++ show z) --make this show return var int from cudd
   z    = restrictSet (ddOf kns f) list
-  list = [ (n, P n `elem` s) | (P n) <- allprops ]
+  list = [ (n, P n `notElem` s) | (P n) <- allprops ] 
 evalViaDd (kns@(KnSZf0 allprops _ _),s) f = bool where
   bool | z==botZ = True
        | z==topZ = False
        | otherwise = error ("evalViaDd failed: ZDDf0 leftover:\n" ++ show z)
   z    = restrictSet (ddOf kns f) list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
-evalViaDd (kns@(KnSZf0s0 allprops _ _),s) f = bool where -- Not done yet!!
+evalViaDd (kns@(KnSZf0s0 allprops _ _),s) f = bool where 
   bool | z==botZ = True
        | z==topZ = False
        | otherwise = error ("evalViaDd failed: ZDDf0s0 leftover:\n" ++ show z)
   z    = restrictSet (ddOf kns f) list
-  list = [ (n, P n `elem` s) | (P n) <- allprops ]
+  list = [ (n, P n `notElem` s) | (P n) <- allprops ]
 
 
 -- Transformations acting on knowledge structs (PAL)
@@ -252,8 +252,7 @@ boolZdds0Of _             = error "boolZdds0Of failed: Not a boolean formula."
 boolZddf0Of :: Form -> Dd Z
 boolZddf0Of Top           = botZ 
 boolZddf0Of Bot           = topZ 
-boolZddf0Of (PrpF (P n))  = neg (varZ n)
-boolZddf0Of (Neg (PrpF (P n)))    = varZ n
+boolZddf0Of (PrpF (P n))  = varZ n
 boolZddf0Of (Neg form)    = neg (boolZddf0Of form)
 boolZddf0Of (Conj forms)  = disSet $ map boolZddf0Of forms
 boolZddf0Of (Disj forms)  = conSet $ map boolZddf0Of forms
@@ -266,7 +265,8 @@ boolZddf0Of _             = error "boolZddf0Of failed: Not a boolean formula."
 boolZddf0s0Of :: Form -> Dd Z
 boolZddf0s0Of Top           = botZ 
 boolZddf0s0Of Bot           = topZ 
-boolZddf0s0Of (PrpF (P n))  = varZ n -- double swap makes it normal
+boolZddf0s0Of (PrpF (P n))  = neg (varZ n)
+boolZddf0s0Of (Neg (PrpF (P n)))    = varZ n
 boolZddf0s0Of (Neg form)    = neg (boolZddf0s0Of form)
 boolZddf0s0Of (Conj forms)  = disSet $ map boolZddf0s0Of forms
 boolZddf0s0Of (Disj forms)  = conSet $ map boolZddf0s0Of forms
@@ -297,15 +297,15 @@ ddOf kns@(KnSZ c _ _) (Forall ps f) = forallSetQ (map fromEnum ps) c (ddOf kns f
 ddOf kns@(KnSZ c _ _) (Exists ps f) = existsSetQ (map fromEnum ps) c (ddOf kns f)
 
 ddOf kns@(KnSZ allprops lawzdd obs) (K i form) =
-  forallSet otherps (imp lawzdd (ddOf kns form)) where
+  forallSetQ otherps allprops (imp lawzdd (ddOf kns form)) where
     otherps = map (\(P n) -> n) $ allprops \\ apply obs i
 
 ddOf kns@(KnSZ allprops lawzdd obs) (Kw i form) =
-  disSet [ forallSet otherps (imp lawzdd (ddOf kns f)) | f <- [form, Neg form] ] where
+  disSet [ forallSetQ otherps allprops (imp lawzdd (ddOf kns f)) | f <- [form, Neg form] ] where
     otherps = map (\(P n) -> n) $ allprops \\ apply obs i
 
 ddOf kns@(KnSZ allprops lawzdd obs) (Ck ags form) = gfpZ lambda where
-  lambda z = conSet $ ddOf kns form : [ forallSet (otherps i) (imp lawzdd z) | i <- ags ]
+  lambda z = conSet $ ddOf kns form : [ forallSetQ (otherps i) allprops (imp lawzdd z) | i <- ags ]
   otherps i = map (\(P n) -> n) $ allprops \\ apply obs i
 
 ddOf kns@(KnSZ _ _ _) (Ckw ags form) = dis (ddOf kns (Ck ags form)) (ddOf kns (Ck ags (Neg form)))
