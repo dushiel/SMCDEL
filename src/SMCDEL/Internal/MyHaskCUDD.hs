@@ -10,9 +10,9 @@ module SMCDEL.Internal.MyHaskCUDD (
   ifthenelse, returnDot,
   gfp, existsQ, forallQ, forallSetQ, existsSetQ,
   -- * extra Zdd functionalities
-  gfpZ, writeToDot, printDdInfo, differenceZ, portVars, initZddVarsWithInt, topZ, varZ, botZ,
+  gfpZ, gfpZf0, writeToDot, printDdInfo, differenceZ, portVars, initZddVarsWithInt, topZ, varZ, botZ,
   createZddFromBdd, forceCheckDd, sub0, sub1, productZ, complementZ, exceptVarZContext, exceptVarZContext2,
-  restrictQ, restrictSetQ, equf0
+  restrictQ, restrictQs0, restrictSetQ, restrictSetQs0, equf0, impf0
 ) where
 
 import qualified Cudd.Cudd
@@ -84,6 +84,7 @@ class DdF a where
   equ :: Dd a -> Dd a -> Dd a
   equf0 :: Dd a -> Dd a -> Dd a
   imp :: Dd a -> Dd a -> Dd a
+  impf0 :: Dd a -> Dd a -> Dd a
   exists :: Int -> Dd a -> Dd a
   forall :: Int -> Dd a -> Dd a
   existsQ :: Int -> [Prp] -> Dd a -> Dd a
@@ -100,6 +101,8 @@ class DdF a where
   restrictSet :: Dd a -> [(Int,Bool)] -> Dd a
   restrictQ :: Dd a -> [Prp] -> (Int,Bool) -> Dd a
   restrictSetQ :: Dd a -> [Prp] -> [(Int,Bool)] -> Dd a
+  restrictQs0 :: Dd a -> [Prp] -> (Int,Bool) -> Dd a
+  restrictSetQs0 :: Dd a -> [Prp] -> [(Int,Bool)] -> Dd a
   writeToDot :: Dd a -> String -> IO()
   printDdInfo :: Dd a -> String -> IO()
   returnDot :: Dd a -> String
@@ -163,6 +166,8 @@ instance DdF Z where
   equf0 a b = dis (imp a b) (imp b a)
   imp (ToDd z1) (ToDd z2) = ToDd $ Cudd.Cudd.cuddZddITE manager z1 z2 t where
     ToDd t = topZ
+  impf0 (ToDd z1) (ToDd z2) = ToDd $ Cudd.Cudd.cuddZddITE manager z2 z1 t where
+    ToDd t = botZ
   ifthenelse (ToDd x) (ToDd y) (ToDd z) = ToDd (Cudd.Cudd.cuddZddITE manager x y z)
   exists _ _ = error "exists on zdd needs a context" 
 
@@ -178,7 +183,9 @@ instance DdF Z where
   restrictQ zdd u (n,bit) = if bit 
     then productZ (sub1 zdd n) (exceptVarZContext u n) --`debug` "true"
   else productZ (sub0 zdd n) (exceptVarZContext u n)  --`debug` "false" --due to cudd's failure of context mentioning i cannot do productZ (sub0 zdd n) (neg $ onlyZ n)
-  
+  restrictQs0 zdd u (n,bit) = if bit 
+    then productZ (sub0 zdd n) (exceptVarZContext u n) --`debug` "true"
+  else productZ (sub1 zdd n) (exceptVarZContext u n)
 
   --Set versions
   forallSet [] _ = error "empty UniversalVar list"
@@ -200,6 +207,9 @@ instance DdF Z where
   restrictSetQ _ _ [] = error "restricting with empty list"
   restrictSetQ zdd u [n] = restrictQ zdd u n
   restrictSetQ zdd u (n : ns) = restrictSetQ (restrictQ zdd u n) u ns
+  restrictSetQs0 _ _ [] = error "restricting with empty list"
+  restrictSetQs0 zdd u [n] = restrictQs0 zdd u n
+  restrictSetQs0 zdd u (n : ns) = restrictSetQs0 (restrictQs0 zdd u n) u ns
 
 
   conSet [] = error "empty AND list"
@@ -241,6 +251,14 @@ gfpZ operator = gfpLoop topZ where
     if current == operator current
       then current
       else gfpLoop (operator current)
+
+gfpZf0 :: (Dd Z -> Dd Z) -> Dd Z
+gfpZf0 operator = gfpLoop botZ where
+  gfpLoop :: Dd Z -> Dd Z
+  gfpLoop current = 
+    if current == operator current
+      then current 
+      else gfpLoop (operator current) 
 
 
 differenceZ :: Dd Z -> Dd Z -> Dd Z
