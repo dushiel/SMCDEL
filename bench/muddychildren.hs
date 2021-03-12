@@ -43,6 +43,27 @@ findNumberCUDDZ n m = unsafePerformIO $ do
   let result = findNumberWith (cuddMudScnInit, SMCDEL.Symbolic.S5_CUDD.evalViaDd) n m 
   return result
 
+findNumberCUDDZs0 :: Int -> Int -> Int
+findNumberCUDDZs0 n m = unsafePerformIO $ do
+  SMCDEL.Symbolic.S5_CUDD.initZddVars [ 1 .. n ]
+  let cuddMudScnInit x y = ( SMCDEL.Symbolic.S5_CUDD.KnSZs0 (mudPs x) (SMCDEL.Symbolic.S5_CUDD.boolZdds0Of (mudPs x) Top) [ (show i,delete (P i) (mudPs x)) | i <- [1..x] ], mudPs y )
+  let result = findNumberWith (cuddMudScnInit, SMCDEL.Symbolic.S5_CUDD.evalViaDd) n m 
+  return result
+
+findNumberCUDDZf0 :: Int -> Int -> Int
+findNumberCUDDZf0 n m = unsafePerformIO $ do
+  SMCDEL.Symbolic.S5_CUDD.initZddVars [ 1 .. n ]
+  let cuddMudScnInit x y = ( SMCDEL.Symbolic.S5_CUDD.KnSZf0 (mudPs x) (SMCDEL.Symbolic.S5_CUDD.boolZddf0Of (mudPs x) Top) [ (show i,delete (P i) (mudPs x)) | i <- [1..x] ], mudPs y )
+  let result = findNumberWith (cuddMudScnInit, SMCDEL.Symbolic.S5_CUDD.evalViaDd) n m 
+  return result
+
+findNumberCUDDZf0s0 :: Int -> Int -> Int
+findNumberCUDDZf0s0 n m = unsafePerformIO $ do
+  SMCDEL.Symbolic.S5_CUDD.initZddVars [ 1 .. n ]
+  let cuddMudScnInit x y = ( SMCDEL.Symbolic.S5_CUDD.KnSZf0s0 (mudPs x) (SMCDEL.Symbolic.S5_CUDD.boolZddf0s0Of (mudPs x) Top) [ (show i,delete (P i) (mudPs x)) | i <- [1..x] ], mudPs y )
+  let result = findNumberWith (cuddMudScnInit, SMCDEL.Symbolic.S5_CUDD.evalViaDd) n m 
+  return result
+
 findNumberCUDD :: Int -> Int -> Int
 findNumberCUDD = findNumberWith (cuddMudScnInit,SMCDEL.Symbolic.S5_CUDD.evalViaBdd) where
   cuddMudScnInit n m = ( SMCDEL.Symbolic.S5_CUDD.KnS (mudPs n) (SMCDEL.Symbolic.S5_CUDD.boolBddOf Top) [ (show i,delete (P i) (mudPs n)) | i <- [1..n] ], mudPs m )
@@ -108,6 +129,9 @@ main =
   , ("CacBDD"    , findNumberCacBDD    , [3..40] )
   , ("CUDD"      , findNumberCUDD      , [3..40] )
   , ("CUDDZ"     , findNumberCUDDZ     , [3..40] )
+  , ("CUDDZs0"   , findNumberCUDDZs0   , [3..40] )
+  , ("CUDDZf0"   , findNumberCUDDZf0   , [3..40] )
+  , ("CUDDZf0s0" , findNumberCUDDZf0s0 , [3..40] )
   , ("K"         , findNumberK         , [3..12] )
   , ("DEMOS5"    , findNumberDemoS5    , [3..12] )
   , ("Trans"     , findNumberTrans     , [3..12] )

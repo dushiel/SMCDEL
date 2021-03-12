@@ -56,8 +56,8 @@ validViaDd :: KnowStruct -> Form -> Bool
 validViaDd kns@(KnS _ lawbdd _) f = top == lawbdd `imp` bddOf kns f
 validViaDd kns@(KnSZ _ lawzdd _) f = topZ == lawzdd `imp` ddOf kns f
 validViaDd kns@(KnSZs0 _ lawzdd _) f = topZ == lawzdd `imp` ddOf kns f
-validViaDd kns@(KnSZf0 _ lawzdd _) f = botZ == ddOf kns f `impf0` lawzdd
-validViaDd kns@(KnSZf0s0 _ lawzdd _) f = botZ == ddOf kns f `impf0` lawzdd 
+validViaDd kns@(KnSZf0 _ lawzdd _) f = botZ == lawzdd `impf0` ddOf kns f
+validViaDd kns@(KnSZf0s0 _ lawzdd _) f = botZ == lawzdd `impf0` ddOf kns f 
 
 evalViaDd :: KnowScene -> Form -> Bool
 evalViaDd (kns@(KnS allprops _ _),s) f = bool where
@@ -256,8 +256,8 @@ boolZddf0Of _ (PrpF (P n))  = varZ n
 boolZddf0Of c (Neg form)    = neg (boolZddf0Of c form)
 boolZddf0Of c (Conj forms)  = disSet $ map (boolZddf0Of c) forms
 boolZddf0Of c (Disj forms)  = conSet $ map (boolZddf0Of c) forms
-boolZddf0Of c (Impl f g)    = imp (boolZddf0Of c g) (boolZddf0Of c f) 
-boolZddf0Of c (Equi f g)    = equf0 (boolZddf0Of c f) (boolZddf0Of c g)
+boolZddf0Of c (Impl f g)    = impf0 (boolZddf0Of c f) (boolZddf0Of c g) 
+boolZddf0Of c (Equi f g)    = equf0 (boolZddf0Of c g) (boolZddf0Of c f)
 boolZddf0Of c (Forall ps f) = existsSetQ (map fromEnum ps) c (boolZddf0Of c f)
 boolZddf0Of c (Exists ps f) = forallSetQ (map fromEnum ps) c (boolZddf0Of c f)
 boolZddf0Of _ _             = error "boolZddf0Of failed: Not a boolean formula."
@@ -270,8 +270,8 @@ boolZddf0s0Of _ (Neg (PrpF (P n)))    = varZ n
 boolZddf0s0Of c (Neg form)    = neg (boolZddf0s0Of c form)
 boolZddf0s0Of c (Conj forms)  = disSet $ map (boolZddf0s0Of c) forms
 boolZddf0s0Of c (Disj forms)  = conSet $ map (boolZddf0s0Of c) forms
-boolZddf0s0Of c (Impl f g)    = imp (boolZddf0s0Of c g) (boolZddf0s0Of c f)
-boolZddf0s0Of c (Equi f g)    = equ (boolZddf0s0Of c f) (boolZddf0s0Of c g)
+boolZddf0s0Of c (Impl f g)    = impf0 (boolZddf0s0Of c f) (boolZddf0s0Of c g) 
+boolZddf0s0Of c (Equi f g)    = equf0 (boolZddf0s0Of c f) (boolZddf0s0Of c g)
 boolZddf0s0Of c (Forall ps f) = existsSetQ (map fromEnum ps) c (boolZddf0s0Of c f)
 boolZddf0s0Of c (Exists ps f) = forallSetQ (map fromEnum ps) c (boolZddf0s0Of c f)
 boolZddf0s0Of _ _             = error "boolZddf0s0Of failed: Not a boolean formula."
@@ -404,11 +404,11 @@ ddOf kns@(KnSZf0 allprops lawzdd obs) (K i form) =
     otherps = map (\(P n) -> n) $ allprops \\ apply obs i 
 
 ddOf kns@(KnSZf0 allprops lawzdd obs) (Kw i form) =
-  conSet [ forallSetQ otherps allprops (impf0 lawzdd (ddOf kns f)) | f <- [form, Neg form] ] where
+  conSet [ existsSetQ otherps allprops (impf0 lawzdd (ddOf kns f)) | f <- [form, Neg form] ] where
     otherps = map (\(P n) -> n) $ allprops \\ apply obs i
 
 ddOf kns@(KnSZf0 allprops lawzdd obs) (Ck ags form) = gfpZf0 lambda where
-  lambda z = disSet $ ddOf kns form : [ forallSetQ (otherps i) allprops (impf0 lawzdd z) | i <- ags ]
+  lambda z = disSet $ ddOf kns form : [ existsSetQ (otherps i) allprops (impf0 lawzdd z) | i <- ags ]
   otherps i = map (\(P n) -> n) $ allprops \\ apply obs i
 
 ddOf kns@(KnSZf0 _ _ _) (Ckw ags form) = con (ddOf kns (Ck ags form)) (ddOf kns (Ck ags (Neg form)))
@@ -451,15 +451,15 @@ ddOf kns@(KnSZf0s0 c _ _) (Forall ps f) = existsSetQ (map fromEnum ps) c (ddOf k
 ddOf kns@(KnSZf0s0 c _ _) (Exists ps f) = forallSetQ (map fromEnum ps) c (ddOf kns f)
 
 ddOf kns@(KnSZf0s0  allprops lawzdd obs) (K i form) =
-  forallSetQ otherps allprops (impf0 lawzdd (ddOf kns form)) where
+  existsSetQ otherps allprops (impf0 lawzdd (ddOf kns form)) where
     otherps = map (\(P n) -> n) $ allprops \\ apply obs i
 
 ddOf kns@(KnSZf0s0  allprops lawzdd obs) (Kw i form) =
-  conSet [ forallSetQ otherps allprops (impf0 lawzdd (ddOf kns f)) | f <- [form, Neg form] ] where
+  conSet [ existsSetQ otherps allprops (impf0 lawzdd (ddOf kns f)) | f <- [form, Neg form] ] where
     otherps = map (\(P n) -> n) $ allprops \\ apply obs i
 
-ddOf kns@(KnSZf0s0  allprops lawzdd obs) (Ck ags form) = gfpZ lambda where
-  lambda z = disSet $ ddOf kns form : [ forallSetQ (otherps i) allprops (impf0 lawzdd z) | i <- ags ]
+ddOf kns@(KnSZf0s0  allprops lawzdd obs) (Ck ags form) = gfpZf0 lambda where
+  lambda z = disSet $ ddOf kns form : [ existsSetQ (otherps i) allprops (impf0 lawzdd z) | i <- ags ]
   otherps i = map (\(P n) -> n) $ allprops \\ apply obs i
 
 ddOf kns@(KnSZf0s0  _ _ _) (Ckw ags form) = con (ddOf kns (Ck ags form)) (ddOf kns (Ck ags (Neg form)))

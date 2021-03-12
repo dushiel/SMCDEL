@@ -12,7 +12,7 @@ module SMCDEL.Internal.MyHaskCUDD (
   -- * extra Zdd functionalities
   gfpZ, gfpZf0, writeToDot, printDdInfo, differenceZ, portVars, initZddVarsWithInt, topZ, varZ, botZ,
   createZddFromBdd, forceCheckDd, sub0, sub1, productZ, complementZ, exceptVarZContext, exceptVarZContext2,
-  restrictQ, restrictQs0, restrictSetQ, restrictSetQs0, equf0, impf0
+  restrictQ, restrictQs0, restrictSetQ, restrictSetQs0, equf0, impf0, negf0
 ) where
 
 import qualified Cudd.Cudd
@@ -78,6 +78,7 @@ varZ n = ToDd (Cudd.Cudd.cuddZddIthVar manager (n-1))
 
 class DdF a where
   neg :: Dd a -> Dd a
+  negf0 :: Dd a -> Dd a
   con :: Dd a -> Dd a -> Dd a
   dis :: Dd a -> Dd a -> Dd a
   xor :: Dd a -> Dd a -> Dd a
@@ -157,6 +158,7 @@ instance DdF B where
 
 instance DdF Z where
   neg z = ifthenelse z botZ topZ
+  negf0 z = ifthenelse z topZ botZ
   con (ToDd z1) (ToDd z2) = ToDd (Cudd.Cudd.cuddZddIntersect manager z1 z2)
   dis (ToDd z1) (ToDd z2) = ToDd (Cudd.Cudd.cuddZddUnion manager z1 z2)
   xor z1 z2 =  a `con` b where
@@ -166,8 +168,7 @@ instance DdF Z where
   equf0 a b = dis (imp a b) (imp b a)
   imp (ToDd z1) (ToDd z2) = ToDd $ Cudd.Cudd.cuddZddITE manager z1 z2 t where
     ToDd t = topZ
-  impf0 (ToDd z1) (ToDd z2) = ToDd $ Cudd.Cudd.cuddZddITE manager z2 z1 t where
-    ToDd t = botZ
+  impf0 z1 z2 = (neg z1) `con` z2
   ifthenelse (ToDd x) (ToDd y) (ToDd z) = ToDd (Cudd.Cudd.cuddZddITE manager x y z)
   exists _ _ = error "exists on zdd needs a context" 
 
