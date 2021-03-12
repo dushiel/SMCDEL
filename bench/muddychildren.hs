@@ -125,14 +125,14 @@ findNumberTriangleLoop count curMod =
 main :: IO ()
 main = 
     defaultMain (map mybench
-  [ ("Triangle"  , findNumberTriangle  , [7..40] )
-  , ("CacBDD"    , findNumberCacBDD    , [3..40] )
-  , ("CUDD"      , findNumberCUDD      , [3..40] )
-  , ("CUDDZ"     , findNumberCUDDZ     , [3..40] )
+  [ ("CUDDZ"     , findNumberCUDDZ     , [3..40] )
   , ("CUDDZs0"   , findNumberCUDDZs0   , [3..40] )
   , ("CUDDZf0"   , findNumberCUDDZf0   , [3..40] )
   , ("CUDDZf0s0" , findNumberCUDDZf0s0 , [3..40] )
   , ("K"         , findNumberK         , [3..12] )
+  , ("Triangle"  , findNumberTriangle  , [7..40] )
+  , ("CacBDD"    , findNumberCacBDD    , [3..40] )
+  , ("CUDD"      , findNumberCUDD      , [3..40] )
   , ("DEMOS5"    , findNumberDemoS5    , [3..12] )
   , ("Trans"     , findNumberTrans     , [3..12] )
   , ("TransK"    , findNumberTransK    , [3..11] ) ])
