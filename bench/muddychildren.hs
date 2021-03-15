@@ -16,6 +16,7 @@ import qualified SMCDEL.Translations.S5
 import qualified SMCDEL.Translations.K
 import qualified SMCDEL.Other.MCTRIANGLE
 import qualified SMCDEL.Symbolic.K
+import Debug.Trace ( trace ) 
 
 checkForm :: Int -> Int -> Form
 checkForm n 0 = nobodyknows n
@@ -26,7 +27,7 @@ findNumberWith (start,evalfunction) n m = k where
   k | loop 0 == (m-1) = m-1
     | otherwise       = error $ "wrong Muddy Children result: " ++ show (loop 0)
   loop count = if evalfunction (start n m) (PubAnnounce (father n) (checkForm n count))
-    then loop (count+1)
+    then loop (count+1) `debug` ("loop: " ++ show count)
     else count
 
 mudPs :: Int -> [Prp]
@@ -139,3 +140,6 @@ main =
   where
     mybench (name,f,range) = bgroup name $ map (run f) range
     run f k = bench (show k) $ whnf (\n -> f n n) k
+
+debug :: c -> String -> c
+debug = flip trace

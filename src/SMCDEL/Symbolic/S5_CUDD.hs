@@ -121,19 +121,19 @@ announce kns@(KnSZ props lawzdd obs) ags psi = KnSZ newprops newlawzdd newobs wh
 announce kns@(KnSZs0 props lawzdd obs) ags psi = KnSZs0 newprops newlawzdd newobs where
   proppsi@(P k) = freshp props
   newprops  = proppsi:props
-  newlawzdd = con lawzdd (equ (varZ k) (ddOf kns psi))
+  newlawzdd = con lawzdd (equ (neg $ varZ k) (ddOf kns psi))
   newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]
 
 --should i invert this under f0?
-announce kns@(KnSZf0 props lawzdd obs) ags psi = KnSZs0 newprops newlawzdd newobs where
+announce kns@(KnSZf0 props lawzdd obs) ags psi = KnSZf0 newprops newlawzdd newobs where
   proppsi@(P k) = freshp props
   newprops  = proppsi:props
   newlawzdd = dis lawzdd (equ (varZ k) (ddOf kns psi))
   newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]
-announce kns@(KnSZf0s0 props lawzdd obs) ags psi = KnSZs0 newprops newlawzdd newobs where
+announce kns@(KnSZf0s0 props lawzdd obs) ags psi = KnSZf0s0 newprops newlawzdd newobs where
   proppsi@(P k) = freshp props
   newprops  = proppsi:props
-  newlawzdd = dis lawzdd (equ (varZ k) (ddOf kns psi))
+  newlawzdd = dis lawzdd (equ (neg $ varZ k) (ddOf kns psi))
   newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]
 
 
