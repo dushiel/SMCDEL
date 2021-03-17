@@ -26,6 +26,7 @@ import Data.GraphViz.Printing (renderDot)
 ---------------------------
 import Control.DeepSeq (rnf)
 import Data.Typeable()
+import Debug.Trace (trace)
 
 -- Data types
 
@@ -104,13 +105,13 @@ pubAnnounce kns@(KnSZs0 props lawzdd obs) psi = KnSZs0 props newlawzdd obs where
 pubAnnounce kns@(KnSZf0 props lawzdd obs) psi = KnSZf0 props newlawzdd obs where
   newlawzdd = dis lawzdd (ddOf kns psi)
 pubAnnounce kns@(KnSZf0s0 props lawzdd obs) psi = KnSZf0s0 props newlawzdd obs where
-  newlawzdd = dis lawzdd (ddOf kns psi)
+  newlawzdd = dis lawzdd (ddOf kns psi) 
 
 announce :: KnowStruct -> [Agent] -> Form -> KnowStruct
 announce kns@(KnS props lawbdd obs) ags psi = KnS newprops newlawbdd newobs where
   proppsi@(P k) = freshp props
   newprops  = proppsi:props
-  newlawbdd = con lawbdd (equ (var k) (bddOf kns psi))
+  newlawbdd = con lawbdd (equ (var k) (bddOf kns psi)) `debug` ("add var k: " ++ show k)
   newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]
 
 announce kns@(KnSZ props lawzdd obs) ags psi = KnSZ newprops newlawzdd newobs where
@@ -311,14 +312,14 @@ ddOf kns@(KnSZ allprops lawzdd obs) (Ck ags form) = gfpZ lambda where
 ddOf kns@(KnSZ _ _ _) (Ckw ags form) = dis (ddOf kns (Ck ags form)) (ddOf kns (Ck ags (Neg form)))
 
 ddOf kns@(KnSZ props _ _) (Announce ags form1 form2) =
-  imp (ddOf kns form1) (restrictQ zdd2 props (k,True)) where
+  imp (ddOf kns form1) (sub1 zdd2 k) where
     zdd2  = ddOf (announce kns ags form1) form2
     (P k) = freshp props
 
 ddOf kns@(KnSZ props _ _) (AnnounceW ags form1 form2) =
   ifthenelse (ddOf kns form1) zdd2a zdd2b where
-    zdd2a = restrictQ (ddOf (announce kns ags form1) form2) props (k,True)
-    zdd2b = restrictQ (ddOf (announce kns ags form1) form2) props (k,False)
+    zdd2a = sub1 (ddOf (announce kns ags form1) form2) k
+    zdd2b = sub0 (ddOf (announce kns ags form1) form2) k
     (P k) = freshp props
 
 ddOf kns@(KnSZ _ _ _) (PubAnnounce form1 form2) = imp (ddOf kns form1) newform2 where
@@ -838,5 +839,7 @@ giveBddTex b = concat
 
 
 
+debug :: c -> String -> c
+debug = flip trace
 
 

@@ -56,9 +56,9 @@ main = do
           --"knowledge structure with Bdd:\\", "\\[ (\\mathcal{F},s) = (" ++ tex ((mykns,[])::KnowScene) ++ ") \\]",
           "knowledge structure with Zdd:\\","\\[ (\\mathcal{F},s) = (" ++ tex ((myknsZ,[])::KnowScene) ++ ") \\]", 
           --"knowledge structure coversion to Zdd:\\","\\[ (\\mathcal{F},s) = (" ++ tex ((myconv,[])::KnowScene) ++ ") \\]",
-          "knowledge structure with Zdds0:\\","\\[ (\\mathcal{F},s) = (" ++ tex ((myknsZs0,[])::KnowScene) ++ ") \\]", 
-          "knowledge structure with Zddf0:\\","\\[ (\\mathcal{F},s) = (" ++ tex ((myknsZf0,[])::KnowScene) ++ ") \\]", 
-          "knowledge structure with Zddf0s0:\\","\\[ (\\mathcal{F},s) = (" ++ tex ((myknsZf0s0,[])::KnowScene) ++ ") \\]", 
+          --"knowledge structure with Zdds0:\\","\\[ (\\mathcal{F},s) = (" ++ tex ((myknsZs0,[])::KnowScene) ++ ") \\]", 
+          --"knowledge structure with Zddf0:\\","\\[ (\\mathcal{F},s) = (" ++ tex ((myknsZf0,[])::KnowScene) ++ ") \\]", 
+          --"knowledge structure with Zddf0s0:\\","\\[ (\\mathcal{F},s) = (" ++ tex ((myknsZf0s0,[])::KnowScene) ++ ") \\]", 
           "\\section{Results}" ]
       mapM_ (doJob outHandle texMode mykns myknsZ myknsZs0 myknsZf0 myknsZf0s0) jobs
 
@@ -76,7 +76,7 @@ doJob outHandle True mykns myknsZ myknsZs0 myknsZf0 myknsZf0s0 (ValidQ f) = do
   hPutStrLn outHandle $ "Is $" ++ texForm (simplify f) ++ "$ valid on $\\mathcal{F}$?\n"
   hPutStrLn outHandle ("Bdd says: " ++ show (validViaDd mykns f) ++ "\n")
   hPutStrLn outHandle ("Zdd says: " ++ show (validViaDd myknsZ f) ++ "\n")
-  --hPutStrLn outHandle ("f in zdd form: " ++ texDdZ (zddOf myknsZ f))
+  hPutStrLn outHandle ("f in bdd form: " ++ texDdB (bddOf mykns f))
   hPutStrLn outHandle ("Zdds0 says: " ++ show (validViaDd myknsZs0 f) ++ "\n")
   hPutStrLn outHandle ("Zddf0 says: " ++ show (validViaDd myknsZf0 f) ++ "\n")
   hPutStrLn outHandle ("Zddf0s0 says: " ++ show (validViaDd myknsZf0s0 f) ++ "\n")
@@ -84,7 +84,7 @@ doJob outHandle False mykns myknsZ myknsZs0 myknsZf0 myknsZf0s0 (ValidQ f) = do
   hPutStrLn outHandle $ "Is " ++ ppForm f ++ " valid on the given structure?\n"
   vividPutStrLn ("Bdd says: " ++ show (validViaDd mykns f) ++ "\n")
   vividPutStrLn ("Zdd says: " ++ show (validViaDd myknsZ f) ++ "\n")
-  --hPutStrLn outHandle ("f in zdd form: " ++ texDdZ (zddOf myknsZ f))
+  hPutStrLn outHandle ("f in bdd form: " ++ texDdB (bddOf mykns f))
   vividPutStrLn ("Zdds0 says: " ++ show (validViaDd myknsZs0 f) ++ "\n")
   vividPutStrLn ("Zddf0 says: " ++ show (validViaDd myknsZf0 f) ++ "\n")
   vividPutStrLn ("Zddf0s0 says: " ++ show (validViaDd myknsZf0s0 f) ++ "\n")

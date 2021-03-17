@@ -7,10 +7,7 @@ OBS  alice: 2,3
 WHERE?
   [ ! (1|2|3) ] alice knows whether 1
 VALID?
-  [ ! (1|2|3) ]
-  [ ! ((~ (alice knows whether 1)) & (~ (bob knows whether 2)) & (~ (carol knows whether 3))) ]
-  [ ! ((~ (alice knows whether 1)) & (~ (bob knows whether 2)) & (~ (carol knows whether 3))) ]
-  alice knows that (1 & 2 & 3)
+  ([ alice ! (1) ] 1) & ([ bob ! (3)] 2)
 
   
 
