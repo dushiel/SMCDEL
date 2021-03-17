@@ -14,6 +14,9 @@ VALID?
   [ ! ((~ (alice knows whether 1)) & (~ (bob knows whether 2)) & (~ (carol knows whether 3))) ]
   [ ! ((~ (alice knows whether 1)) & (~ (bob knows whether 2)) & (~ (carol knows whether 3))) ]
   (alice,bob,carol) comknow that (1 & 2 & 3)
+<<<<<<< HEAD
+>>>>>>> 3ee815d61cb6469846c594ba5881f7437a0a7828
+=======
 >>>>>>> 3ee815d61cb6469846c594ba5881f7437a0a7828
 
   

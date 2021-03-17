@@ -840,7 +840,10 @@ giveBddTex b = concat
 debug :: c -> String -> c
 debug = flip trace
 
+<<<<<<< HEAD
 debug :: c -> String -> c
 debug = flip trace
+=======
+>>>>>>> 3ee815d61cb6469846c594ba5881f7437a0a7828
 
 
