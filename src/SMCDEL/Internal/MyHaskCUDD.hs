@@ -65,7 +65,7 @@ bot = ToDd (Cudd.Cudd.cuddReadLogicZero manager)
 top :: Dd B
 top = ToDd (Cudd.Cudd.cuddReadOne manager)
 var :: Int -> Dd B
-var n = ToDd (Cudd.Cudd.cuddBddIthVar manager (n-1))
+var n = ToDd (Cudd.Cudd.cuddBddIthVar manager (n-1)) `debug` ("var " ++ show n)
 
 topZ :: Dd Z
 topZ = ToDd (Cudd.Cudd.cuddZddReadOne manager)
@@ -189,26 +189,26 @@ instance DdF Z where
   else productZ (sub1 zdd n) (exceptVarZContext u n)
 
   --Set versions
-  forallSet [] _ = error "empty UniversalVar list"
+  forallSet [] z = z
   forallSet [n] z = forall n z
   forallSet (n:ns) z = x `dis` forallSet ns x where 
     x = forall n z
-  existsSet [] _ = error "empty ExistsVar list"
+  existsSet [] z = z
   existsSet [n] z = exists n z
   existsSet (n:ns) z = x `con` existsSet ns x where --Here we loose more than 1 variable in our vocabulary!!!!
     x = exists n z
-  forallSetQ [] _ _ = error "empty UniversalVar list"
+  forallSetQ [] _ z = z
   forallSetQ [n] v z = forallQ n v z
   forallSetQ (n:ns) v z = x `dis` forallSetQ ns v x where 
     x = forallQ n v z
-  existsSetQ [] _ _ = error "empty ExistsVar list"
+  existsSetQ [] _ z = z
   existsSetQ [n] v z = existsQ n v z
   existsSetQ (n:ns) v z = x `con` existsSetQ ns v x where --Here we loose more than 1 variable in our vocabulary!!!!
     x = existsQ n v z
-  restrictSetQ _ _ [] = error "restricting with empty list"
+  restrictSetQ z _ [] = z
   restrictSetQ zdd u [n] = restrictQ zdd u n
   restrictSetQ zdd u (n : ns) = restrictSetQ (restrictQ zdd u n) u ns
-  restrictSetQs0 _ _ [] = error "restricting with empty list"
+  restrictSetQs0 z _ [] = z
   restrictSetQs0 zdd u [n] = restrictQs0 zdd u n
   restrictSetQs0 zdd u (n : ns) = restrictSetQs0 (restrictQs0 zdd u n) u ns
 

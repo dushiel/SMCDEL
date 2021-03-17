@@ -26,6 +26,7 @@ import Data.GraphViz.Printing (renderDot)
 ---------------------------
 import Control.DeepSeq (rnf)
 import Data.Typeable()
+import Debug.Trace (trace)
 
 -- Data types
 
@@ -69,7 +70,7 @@ evalViaDd (kns@(KnS allprops _ _),s) f = bool where
 evalViaDd (kns@(KnSZ allprops _ _),s) f = bool where
   bool | z==topZ = True
        | z==botZ = False
-       | otherwise = error ("evalViaDd failed: ZDD leftover:\n" ++ (texDdZ z))
+       | otherwise = error ("evalViaDd failed: ZDD leftover:\n" ++ (texDdZ z) ++ " -topZ being: " ++ texDdZ topZ)
   z    = restrictSetQ (ddOf kns f) allprops list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
 evalViaDd (kns@(KnSZs0 allprops _ _),s) f = bool where 
@@ -200,7 +201,7 @@ bddOf _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
 bddOf _ _ = error "bddOf with wrong kns type"
 
 evalViaBdd :: KnowScene -> Form -> Bool 
-evalViaBdd (kns@(KnS allprops _ _),s) f = bool where
+evalViaBdd (kns@(KnS allprops _ _),s) f = bool `debug` "evalViaBDD" where
   bool | b==top = True
        | b==bot = False
        | otherwise = error ("evalViaBdd failed: BDD leftover:\n" ++ show b)
@@ -282,7 +283,7 @@ ddOf :: KnowStruct -> Form -> Dd Z
 -- allversions
 
 -- ZDD version
-ddOf (KnSZ _ _ _) Top           = topZ
+ddOf (KnSZ _ _ _)    Top           = topZ
 ddOf (KnSZ _ _ _)    Bot           = botZ
 ddOf (KnSZ _ _ _)    (PrpF (P n))  = varZ n
 ddOf kns@(KnSZ _ _ _)  (Neg form) = neg (ddOf kns form)
@@ -836,7 +837,8 @@ giveBddTex b = concat
     , "} \\end{array}\n "]
 
 
-
+debug :: c -> String -> c
+debug = flip trace
 
 
 

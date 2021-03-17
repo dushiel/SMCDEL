@@ -40,7 +40,7 @@ myMod = (ExpK.KrM $ fromList wlist, 0) where
 
 myScn :: SymK.BelScene
 myScn =
-  let allprops = [P 0 .. P 4]
+  let allprops = [P 0 .. P 4] 
   in (SymK.BlS allprops
                   (boolBddOf Top)
                   (fromList $ ("0", SymK.allsamebdd allprops)  -- knows everything
