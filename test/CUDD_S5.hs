@@ -10,82 +10,65 @@ import SMCDEL.Internal.Help (alleq)
 import SMCDEL.Language
 import SMCDEL.Symbolic.S5_CUDD as Cudd
 
+import Debug.Trace (trace)
+
 main :: IO ()
-main = hspec $ do
-  describe "hardcoded myScn" $ do
-    prop "evalVia on different DD types" $ alleq . comparisonDdTest --How are the forms given on here?
-    prop "conversion to different DD types" $ alleq . conversionDdTest
-
-  describe "random Kripke models" $ do
-    prop "Ck i -> K i" $ \(Ag i) krm f -> ExpK.eval (krm,0) (Ck [i] f `Impl` Ck [i] f) --same here, how is f and i determined? does it have to do with the arrow? how does the single backslash work?
-    prop "semanticEquivExpToSym" $ \krm f -> alleq $ semanticEquivExpToSym (krm,0) f
-    prop "diff" $ \krmA krmB -> diffTest (krmA,0) (krmB,0)
-
---Test cases!:
-
---Law: Forall 1 ((2 & ~ 1) -> (~3))
---Valid: Exists 1 ((~ 1 -> (~3)) & (2 -> (~3 | 1)))
+main = do 
+  initZddVars [1..5]
+  hspec $ do
+    describe "hardcoded myScn" $ do
+      prop "evalVia on different DD types" $ alleq . comparisonDdTest --How are the forms given on here?
+      --prop "conversion to different DD types" $ alleq . conversionDdTest
 
 
---Law: Top
--- [ ! (1) ] alice knows that (1)
-
-
---Law: 1   
--- [ ! ((alice knows whether 1) & (bob knows whether 1) & (carol knows whether 1)) ] 
--- (alice, bob, carol) comknows that (1 & 2 & 3)
-
---Law: Top
--- alice knows that (1 -> ~2) [?! (1 & 2 & 3)] alice knows that ~(1 & 2 & 3 )
-
---Law: Top
--- alice knows that (1 -> ~2) [ (alice, bob) ?! (1 & 2 & 3)] alice knows that ~(1 & 2 & 3 )
 
 
 myKnS :: Cudd.KnowStruct
-myKnS = 
-  (Cudd.KnS [P 0 .. P 4], boolBddOf Top, obs) --how to create instance of obs
+myKnS = Cudd.KnS myDefaultProps (boolBddOf Top) myDefaultObservables `debug` "init bdd"
 
 myKnSZ :: Cudd.KnowStruct
-myKnSZ = 
-  (Cudd.KnSZ [P 0 .. P 4], boolZddOf Top, obs)
+myKnSZ = Cudd.KnSZ myDefaultProps (boolZddOf myDefaultProps Top) myDefaultObservables
 
 myKnSZs0 :: Cudd.KnowStruct
-myKnSZs0 = 
-  (Cudd.KnSZs0 [P 0 .. P 4], boolZdds0Of Top, obs)
+myKnSZs0 = Cudd.KnSZs0 myDefaultProps (boolZdds0Of myDefaultProps Top) myDefaultObservables
 
 myKnSZf0 :: Cudd.KnowStruct
-myKnSZf0 = 
-  (Cudd.KnSZf0 [P 0 .. P 4], boolZddf0Of Top, obs)
+myKnSZf0 = Cudd.KnSZf0 myDefaultProps (boolZddf0Of myDefaultProps Top) myDefaultObservables
 
 myKnSZf0s0 :: Cudd.KnowStruct
-myKnSZf0s0 = 
-  (Cudd.KnSZf0 [P 0 .. P 4], boolZddf0s0Of Top, obs)
+myKnSZf0s0 = Cudd.KnSZf0 myDefaultProps (boolZddf0s0Of myDefaultProps Top) myDefaultObservables
 
-myState :: [Prp]
-myState = [P 0 .. P 4] --do i want to variate this?
+myDefaultState :: [Prp]
+myDefaultState = [P 1 .. P 5] 
+
+myDefaultProps :: [Prp]
+myDefaultProps = [P 1 .. P 5]
+
+myDefaultObservables :: [(Agent,[Prp])]
+myDefaultObservables = [("1", [P 1 .. P 5]), ("2", [P 1, P 2]), ("3", [])]
 
 comparisonDdTest :: SimplifiedForm -> [Bool]
-comparisonToBddTest (SF f) = 
-  [ Cudd.evalViaDd myCuddScene f
-    , Cudd.evalViaDd myCuddSceneZ f
-    , Cudd.evalViaDd myCuddSceneZs0 f
-    , Cudd.evalViaDd myCuddSceneZf0 f
-    , Cudd.evalViaDd myCuddSceneZf0s0 f
+comparisonDdTest (SF f) = 
+  [ Cudd.evalViaBdd (myKnS, myDefaultState) f 
+    , Cudd.evalViaDd (myKnSZ, myDefaultState) f 
+    --, Cudd.evalViaDd (myKnSZs0, myDefaultState) f
+    --, Cudd.evalViaDd (myKnSZf0, myDefaultState) f
+    --, Cudd.evalViaDd (myKnSZf0s0, myDefaultState) f
   ]
 
 conversionDdTest :: SimplifiedForm -> [Bool]
-comparisonToBddTest (SF f) = 
-  [ Cudd.evalViaDd (myKnS, myState) f
-    , Cudd.evalViaDd (Cudd.convertToZdd myKnS, myState) f
-    , Cudd.evalViaDd (Cudd.convertToZdds0 myKnS, myState) f
-    , Cudd.evalViaDd (Cudd.convertToZddf0 myKnS, myState) f
-    , Cudd.evalViaDd (Cudd.convertToZddf0s0 myKnS, myState) f
+conversionDdTest (SF f) = 
+  [ Cudd.evalViaDd (myKnS, myDefaultState) f
+    , Cudd.evalViaDd (Cudd.convertToZdd myKnS, myDefaultState) f
+    , Cudd.evalViaDd (Cudd.convertToZdds0 myKnS, myDefaultState) f
+    , Cudd.evalViaDd (Cudd.convertToZddf0 myKnS, myDefaultState) f
+    , Cudd.evalViaDd (Cudd.convertToZddf0s0 myKnS, myDefaultState) f
   ]
 
-
+--debug :: c -> String -> c
+--debug = flip trace
 --are the functions below also useful for me?
-diffTest :: PointedModel -> PointedModel -> Bool
+{-diffTest :: PointedModel -> PointedModel -> Bool
 diffTest pmA pmB =
   case diffPointed pmA pmB of
     Left  b -> checkBisimPointed b pmA pmB
@@ -112,4 +95,4 @@ myScn =
                   (fromList $ ("0", SymK.allsamebdd allprops)  -- knows everything
                             : ("1", SymK.emptyRelBdd)          -- insane
                             : [(show i, SymK.totalRelBdd) | i<-[2..5::Int]])
-     , allprops)
+     , allprops)-}

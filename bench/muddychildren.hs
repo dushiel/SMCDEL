@@ -27,7 +27,7 @@ findNumberWith (start,evalfunction) n m = k where
   k | loop 0 == (m-1) = m-1
     | otherwise       = error $ "wrong Muddy Children result: " ++ show (loop 0)
   loop count = if evalfunction (start n m) (PubAnnounce (father n) (checkForm n count))
-    then loop (count+1) `debug` ("loop: " ++ show count)
+    then loop (count+1) `debug` ("loop: " ++ show count ++ show (PubAnnounce (father n) (checkForm n count)))
     else count
 
 mudPs :: Int -> [Prp]

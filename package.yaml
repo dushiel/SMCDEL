@@ -86,6 +86,13 @@ tests:
       - containers
       - hspec
       - smcdel
+  CUDD_S5:
+    main: test/CUDD_S5.hs
+    dependencies:
+      - base >= 4.8 && < 5
+      - containers
+      - hspec
+      - smcdel
 
 benchmarks:
   bench-diningcrypto:

@@ -17,7 +17,7 @@ instance Enum Prp where
   fromEnum (P n) = n
 
 defaultVocabulary :: [Prp]
-defaultVocabulary = map P [0..4]
+defaultVocabulary = map P [1..5]
 
 instance Arbitrary Prp where
   arbitrary = elements defaultVocabulary
