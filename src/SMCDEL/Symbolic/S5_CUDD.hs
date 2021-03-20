@@ -54,8 +54,8 @@ instance Pointed KnowStruct KnState
 --------------querying
 
 validViaDd :: KnowStruct -> Form -> Bool
-validViaDd kns@(KnS _ lawbdd _) f = top == lawbdd `imp` bddOf kns f
-validViaDd kns@(KnSZ _ lawzdd _) f = topZ == lawzdd `imp` ddOf kns f
+validViaDd kns@(KnS _ lawbdd _) f = top == lawbdd `imp` bddOf kns f 
+validViaDd kns@(KnSZ _ lawzdd _) f = topZ == lawzdd `imp` ddOf kns f 
 validViaDd kns@(KnSZs0 _ lawzdd _) f = topZ == lawzdd `imp` ddOf kns f
 validViaDd kns@(KnSZf0 _ lawzdd _) f = botZ == lawzdd `impf0` ddOf kns f
 validViaDd kns@(KnSZf0s0 _ lawzdd _) f = botZ == lawzdd `impf0` ddOf kns f 
@@ -117,7 +117,7 @@ announce kns@(KnS props lawbdd obs) ags psi = KnS newprops newlawbdd newobs wher
 announce kns@(KnSZ props lawzdd obs) ags psi = KnSZ newprops newlawzdd newobs where
   proppsi@(P k) = freshp props
   newprops  = proppsi:props
-  newlawzdd = con lawzdd (equ (varZ k) (ddOf kns psi))
+  newlawzdd = con lawzdd (equ (varZ k) (ddOf kns psi)) `debug` ("add varZ k: " ++ show k)
   newobs    = [(i, apply obs i ++ [proppsi | i `elem` ags]) | i <- map fst obs]
 announce kns@(KnSZs0 props lawzdd obs) ags psi = KnSZs0 newprops newlawzdd newobs where
   proppsi@(P k) = freshp props
@@ -201,10 +201,10 @@ bddOf _ (Dia _ _) = error "Dynamic operators are not implemented for CUDD."
 bddOf _ _ = error "bddOf with wrong kns type"
 
 evalViaBdd :: KnowScene -> Form -> Bool 
-evalViaBdd (kns@(KnS allprops _ _),s) f = bool `debug` "evalViaBDD" where
+evalViaBdd (kns@(KnS allprops _ _),s) f = bool where
   bool | b==top = True
        | b==bot = False
-       | otherwise = error ("evalViaBdd failed: BDD leftover:\n" ++ show b)
+       | otherwise = error ("evalViaBdd failed: BDD leftover:\n" ++ texDdB b)
   b    = restrictSet (bddOf kns f) list
   list = [ (n, P n `elem` s) | (P n) <- allprops ]
 evalViaBdd (_,_) _ = error "evalViaBdd with a wrong kns type"
@@ -312,14 +312,14 @@ ddOf kns@(KnSZ allprops lawzdd obs) (Ck ags form) = gfpZ lambda where
 ddOf kns@(KnSZ _ _ _) (Ckw ags form) = dis (ddOf kns (Ck ags form)) (ddOf kns (Ck ags (Neg form)))
 
 ddOf kns@(KnSZ props _ _) (Announce ags form1 form2) =
-  imp (ddOf kns form1) (sub1 zdd2 k) where
+  imp (ddOf kns form1) (restrictQ zdd2 props (k, True)) where
     zdd2  = ddOf (announce kns ags form1) form2
     (P k) = freshp props
 
 ddOf kns@(KnSZ props _ _) (AnnounceW ags form1 form2) =
   ifthenelse (ddOf kns form1) zdd2a zdd2b where
-    zdd2a = sub1 (ddOf (announce kns ags form1) form2) k
-    zdd2b = sub0 (ddOf (announce kns ags form1) form2) k
+    zdd2a = restrictQ (ddOf (announce kns ags form1) form2) props (k, True)
+    zdd2b = restrictQ (ddOf (announce kns ags form1) form2) props (k, False)
     (P k) = freshp props
 
 ddOf kns@(KnSZ _ _ _) (PubAnnounce form1 form2) = imp (ddOf kns form1) newform2 where
@@ -501,36 +501,40 @@ convertTestZdd _ _ = error "wrong knowstruct type or query given in convertTestZ
 convertToZdd :: KnowStruct -> KnowStruct
 convertToZdd (KnS vocab law obs) = KnSZ vocab (createZddFromBdd law) obs
 convertToZdd kns@(KnSZ _ _ _ ) = kns
-convertToZdd (KnSZs0 vocab law obs) = KnSZ vocab (neg law) obs
-convertToZdd (KnSZf0 vocab law obs) = KnSZ vocab (complementZ law) obs
-convertToZdd (KnSZf0s0 vocab law obs) = KnSZ vocab (complementZ $ neg law) obs
+convertToZdd (KnSZs0 vocab law obs) = KnSZ vocab (swaps0 law (map fromEnum vocab)) obs
+convertToZdd (KnSZf0 vocab law obs) = KnSZ vocab (neg law) obs
+convertToZdd (KnSZf0s0 vocab law obs) = KnSZ vocab (swaps0 (neg law) (map fromEnum vocab)) obs
 
 convertToZdds0 :: KnowStruct -> KnowStruct
 convertToZdds0 (KnS vocab law obs) = KnSZs0 vocab (neg $ createZddFromBdd law) obs
-convertToZdds0 (KnSZ vocab law obs) = KnSZs0 vocab (neg law) obs
+convertToZdds0 (KnSZ vocab law obs) = KnSZs0 vocab (swaps0 law (map fromEnum vocab)) obs
 convertToZdds0 kns@(KnSZs0 _ _ _) = kns
-convertToZdds0 (KnSZf0 vocab law obs) = KnSZs0 vocab (complementZ $ neg law) obs
-convertToZdds0 (KnSZf0s0 vocab law obs) = KnSZs0 vocab (complementZ law) obs
+convertToZdds0 (KnSZf0 vocab law obs) = KnSZs0 vocab (swaps0 (neg law) (map fromEnum vocab)) obs
+convertToZdds0 (KnSZf0s0 vocab law obs) = KnSZs0 vocab (neg law) obs
 
 convertToZddf0 :: KnowStruct -> KnowStruct
-convertToZddf0 (KnS vocab law obs) = KnSZf0 vocab (complementZ $ createZddFromBdd law) obs
-convertToZddf0 (KnSZ vocab law obs) = KnSZf0 vocab (complementZ law) obs
-convertToZddf0 (KnSZs0 vocab law obs) = KnSZf0 vocab (complementZ $ neg law) obs
+convertToZddf0 (KnS vocab law obs) = KnSZf0 vocab (neg $ createZddFromBdd law) obs
+convertToZddf0 (KnSZ vocab law obs) = KnSZf0 vocab (neg law) obs
+convertToZddf0 (KnSZs0 vocab law obs) = KnSZf0 vocab (swaps0 (neg law) (map fromEnum vocab)) obs
 convertToZddf0 kns@(KnSZf0 _ _ _ ) = kns 
-convertToZddf0 (KnSZf0s0 vocab law obs) = KnSZf0 vocab (neg law) obs
+convertToZddf0 (KnSZf0s0 vocab law obs) = KnSZf0 vocab (swaps0 law (map fromEnum vocab)) obs
 
 convertToZddf0s0 :: KnowStruct -> KnowStruct
-convertToZddf0s0 (KnS vocab law obs) = KnSZf0s0 vocab (complementZ $ neg $ createZddFromBdd law) obs
-convertToZddf0s0 (KnSZ vocab law obs) = KnSZf0s0 vocab (complementZ $ neg law) obs
-convertToZddf0s0 (KnSZs0 vocab law obs) = KnSZf0s0 vocab (complementZ law) obs
-convertToZddf0s0 (KnSZf0 vocab law obs) = KnSZf0s0 vocab (neg law) obs
+convertToZddf0s0 (KnS vocab law obs) = KnSZf0s0 vocab (swaps0 (neg $ createZddFromBdd law) (map fromEnum vocab)) obs
+convertToZddf0s0 (KnSZ vocab law obs) = KnSZf0s0 vocab (swaps0 (neg law) (map fromEnum vocab)) obs
+convertToZddf0s0 (KnSZs0 vocab law obs) = KnSZf0s0 vocab (neg law) obs
+convertToZddf0s0 (KnSZf0 vocab law obs) = KnSZf0s0 vocab (swaps0 law (map fromEnum vocab)) obs
 convertToZddf0s0 kns@(KnSZf0s0 _ _ _) = kns
 
 initZddVars :: [Int] -> IO()
 initZddVars vocab = do
   let v = initZddVarsWithInt vocab
-  _ <- return $! rnf (forceCheckDd v)
+  let extra_prop_v = v `con` initZddVarsWithInt [(maximumInts vocab)+1] -- ugly trick to add extra var for dealing with announce updates
+  _ <- return $! rnf (forceCheckDd extra_prop_v)
   return ()
+
+maximumInts :: [Int] -> Int
+maximumInts = foldr1 (\x y ->if x >= y then x else y)
 
 --portvar :: IO() --Sets the BDD vars as ZDD vars
 --portvar = portVars
@@ -558,8 +562,8 @@ giveDebugTex = concat [
   ,bs, ": \\\\ \\[", giveZddTex b, "\\] \\\\ \n"
   ,cs, ": \\\\ \\[", giveZddTex c, "\\] \\\\ \n"
   ,a2s, ": \\\\ \\[", giveZddTex a2, "\\] \\\\ \n"
-  ,b2s, ": \\\\ \\[", giveZddTex b2, "\\] \\\\ \n"
-  ,c2s, ": \\\\ \\[", giveZddTex c2, "\\] \\\\ \n"
+  --,b2s, ": \\\\ \\[", giveZddTex b2, "\\] \\\\ \n"
+  --,c2s, ": \\\\ \\[", giveZddTex c2, "\\] \\\\ \n"
   --,ds, ": \\\\ \\[", giveZddTex d, "\\] \\\\ \n"
   --,d2s, ": \\\\ \\[", giveZddTex d2, "\\] \\\\ \n"
   --,es, ": \\\\ \\[", giveZddTex e, "\\] \\\\ \n"
@@ -599,19 +603,19 @@ giveDebugTex = concat [
     --js = "ZDD: only var 1"
     --j = neg $ varZ 1
 
-    as = "ZDD: (2 con neg 1) imp (neg 3)"
-    a = (varZ 2 `con` (neg $ varZ 1)) `imp` (neg $ varZ 3)
-    bs = "ZDD Conversion: Forall 1 ((2 con neg 1) imp (neg 3))"
-    b = createZddFromBdd (forall 1 ((var 2 `con` (neg $ var 1)) `imp` (neg $ var 3)))
-    cs = "ZDD: Forall 1 ((2 con neg 1) imp (neg 3))"
-    c = forallQ 1 (map P [1,2,3]) ((varZ 2 `con` (neg $ varZ 1)) `imp` (neg $ varZ 3))
+    as = "Var 4"
+    a = varZ 4
+    bs = "Topz"
+    b = topZ 
+    cs = "sub1 4"
+    c = sub1 topZ 4
 
-    a2s = "ZDD: (neg 1 imp ( neg 3)) con (2 imp (neg 3))"
-    a2 = ((neg $ varZ 1) `imp` ( neg $ varZ 3)) `con` (varZ 2 `imp` ((neg $ varZ 3 ) `dis` varZ 1))
-    b2s = "ZDD Conversion: (exists 1 ((neg 1 imp ( neg 3) con 2 imp (neg 3)))"
-    b2 = createZddFromBdd (exists 1 (((neg $ var 1) `imp` ( neg $ var 3)) `con` (var 2 `imp` ((neg $ var 3 ) `dis` var 1))))
-    c2s = "ZDD: (exists 1 ((neg 1 imp ( neg 3) con 2 imp (neg 3)))"
-    c2 = existsQ 1 (map P [1,2,3]) (((neg $ varZ 1) `imp` ( neg $ varZ 3)) `con` (varZ 2 `imp` ((neg $ varZ 3 ) `dis` varZ 1)))
+    a2s = "TopZ"
+    a2 = topZ
+    --b2s = "sub1 varZ 5"
+    --b2 = sub1 (varZ 5 `con` varZ 2) 5
+    c2s = "TopZ"
+    c2 = topZ
 
     --ds = "ZDD: sub0 ((neg 1 imp ( neg 3)) con 2 imp (neg 3))"
     --d = sub0 ((neg $ varZ 1 `imp` ( neg $ varZ 3)) `con` (varZ 2 `imp` (neg $ varZ 3 ))) 1 
@@ -840,10 +844,5 @@ giveBddTex b = concat
 debug :: c -> String -> c
 debug = flip trace
 
-<<<<<<< HEAD
-debug :: c -> String -> c
-debug = flip trace
-=======
->>>>>>> 3ee815d61cb6469846c594ba5881f7437a0a7828
 
 

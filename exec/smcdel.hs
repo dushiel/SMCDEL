@@ -44,7 +44,7 @@ main = do
       let myknsZf0 = KnSZf0 (map P vocabInts) (boolZddf0Of (map P vocabInts) $! lawform) (map (second (map P)) obs)
       let myknsZf0s0 = KnSZf0s0 (map P vocabInts) (boolZddf0s0Of (map P vocabInts) $! lawform) (map (second (map P)) obs)
       
-      --hPutStrLn outHandle giveDebugTex
+      hPutStrLn outHandle giveDebugTex
       if texMode then 
         hPutStrLn outHandle $ "The law: " ++ tex lawform  ++ " \\\\" 
         else hPutStrLn outHandle $ "The law: " ++ ppForm lawform  ++ " \\\\"
@@ -76,7 +76,7 @@ doJob outHandle True mykns myknsZ myknsZs0 myknsZf0 myknsZf0s0 (ValidQ f) = do
   hPutStrLn outHandle $ "Is $" ++ texForm (simplify f) ++ "$ valid on $\\mathcal{F}$?\n"
   hPutStrLn outHandle ("Bdd says: " ++ show (validViaDd mykns f) ++ "\n")
   hPutStrLn outHandle ("Zdd says: " ++ show (validViaDd myknsZ f) ++ "\n")
-  hPutStrLn outHandle ("f in bdd form: " ++ texDdB (bddOf mykns f))
+  --hPutStrLn outHandle ("f in bdd form: " ++ texDdB (bddOf mykns f))
   hPutStrLn outHandle ("Zdds0 says: " ++ show (validViaDd myknsZs0 f) ++ "\n")
   hPutStrLn outHandle ("Zddf0 says: " ++ show (validViaDd myknsZf0 f) ++ "\n")
   hPutStrLn outHandle ("Zddf0s0 says: " ++ show (validViaDd myknsZf0s0 f) ++ "\n")
@@ -84,7 +84,7 @@ doJob outHandle False mykns myknsZ myknsZs0 myknsZf0 myknsZf0s0 (ValidQ f) = do
   hPutStrLn outHandle $ "Is " ++ ppForm f ++ " valid on the given structure?\n"
   vividPutStrLn ("Bdd says: " ++ show (validViaDd mykns f) ++ "\n")
   vividPutStrLn ("Zdd says: " ++ show (validViaDd myknsZ f) ++ "\n")
-  hPutStrLn outHandle ("f in bdd form: " ++ texDdB (bddOf mykns f))
+  --hPutStrLn outHandle ("f in bdd form: " ++ texDdB (bddOf mykns f))
   vividPutStrLn ("Zdds0 says: " ++ show (validViaDd myknsZs0 f) ++ "\n")
   vividPutStrLn ("Zddf0 says: " ++ show (validViaDd myknsZf0 f) ++ "\n")
   vividPutStrLn ("Zddf0s0 says: " ++ show (validViaDd myknsZf0s0 f) ++ "\n")

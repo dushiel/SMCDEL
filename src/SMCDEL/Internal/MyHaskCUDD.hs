@@ -12,7 +12,7 @@ module SMCDEL.Internal.MyHaskCUDD (
   -- * extra Zdd functionalities
   gfpZ, gfpZf0, writeToDot, printDdInfo, differenceZ, portVars, initZddVarsWithInt, topZ, varZ, botZ,
   createZddFromBdd, forceCheckDd, sub0, sub1, productZ, complementZ, exceptVarZContext, exceptVarZContext2,
-  restrictQ, restrictQs0, restrictSetQ, restrictSetQs0, equf0, impf0, negf0
+  restrictQ, restrictQs0, restrictSetQ, restrictSetQs0, equf0, impf0, negf0, swaps0
 ) where
 
 import qualified Cudd.Cudd
@@ -43,12 +43,14 @@ complementZ :: Dd Z -> Dd Z
 complementZ (ToDd z) = ToDd $ Cudd.Cudd.cuddZddComplement manager z
 
 sub0 :: Dd Z -> Int -> Dd Z
-sub0 z n = ToDd $ Cudd.Cudd.cuddZddSub0 manager zmin (n-1) where
+sub0 z n = ToDd $ Cudd.Cudd.cuddZddSub0 manager zmin n where
   ToDd zmin = z
 sub1 :: Dd Z -> Int -> Dd Z
-sub1 (ToDd z) n = ToDd $ Cudd.Cudd.cuddZddSub1 manager z (n-1) 
---changeZ :: Dd Z -> Int -> Dd Z 
---changeZ (ToDd z) n = ToDd $ Cudd.Cudd.cuddZddChange manager z (n-1)
+sub1 (ToDd z) n = ToDd $ Cudd.Cudd.cuddZddSub1 manager z n 
+swaps0 :: Dd Z -> [Int] -> Dd Z 
+swaps0 (ToDd z) [n] = ToDd $ Cudd.Cudd.cuddZddChange manager z n
+swaps0 (ToDd z) (n:ns) = swaps0 (ToDd $ Cudd.Cudd.cuddZddChange manager z n) ns
+swaps0 z [] = z
 
 productZ :: Dd Z -> Dd Z -> Dd Z
 productZ (ToDd z1) (ToDd z2) = ToDd $ Cudd.Cudd.cuddZddProduct manager z1 z2
@@ -65,14 +67,14 @@ bot = ToDd (Cudd.Cudd.cuddReadLogicZero manager)
 top :: Dd B
 top = ToDd (Cudd.Cudd.cuddReadOne manager)
 var :: Int -> Dd B
-var n = ToDd (Cudd.Cudd.cuddBddIthVar manager (n-1)) `debug` ("var " ++ show n)
+var n = ToDd (Cudd.Cudd.cuddBddIthVar manager n) --`debug` ("var " ++ show n)
 
 topZ :: Dd Z
 topZ = ToDd (Cudd.Cudd.cuddZddReadOne manager)
 botZ :: Dd Z
 botZ = ToDd (Cudd.Cudd.cuddZddReadZero manager)
 varZ :: Int -> Dd Z
-varZ n = ToDd (Cudd.Cudd.cuddZddIthVar manager (n-1))
+varZ n = ToDd (Cudd.Cudd.cuddZddIthVar manager n) --`debug` ("varZ " ++ show n)
 
 -------------------------------------------------------------------------------------------
 
@@ -126,18 +128,18 @@ instance DdF B where
   imp (ToDd b1) (ToDd b2) = ToDd $ Cudd.Cudd.cuddBddIte manager b1 b2 t where
     ToDd t = top 
   ifthenelse (ToDd b1) (ToDd b2) (ToDd b3) = ToDd $ Cudd.Cudd.cuddBddIte manager b1 b2 b3
-  exists n (ToDd b) = ToDd $ Cudd.Cudd.cuddBddExistAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager [n-1])
-  forall n (ToDd b) = ToDd $ Cudd.Cudd.cuddBddUnivAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager [n-1])
+  exists n (ToDd b) = ToDd $ Cudd.Cudd.cuddBddExistAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager [n])
+  forall n (ToDd b) = ToDd $ Cudd.Cudd.cuddBddUnivAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager [n])
   restrict (ToDd b) (n,bit) = ToDd $ Cudd.Cudd.cuddBddLICompaction manager b res where
     ToDd res = if bit then var n else neg (var n)
 
   --set versions
   existsSet [] b = b
-  existsSet ns (ToDd b) = ToDd $ Cudd.Cudd.cuddBddExistAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager correctedns)
-    where correctedns = map (+(-1)) ns
+  existsSet ns (ToDd b) = ToDd $ Cudd.Cudd.cuddBddExistAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager ns)
+    --where correctedns = map (+(-1)) ns
   forallSet [] b = b
-  forallSet ns (ToDd b) = ToDd $ Cudd.Cudd.cuddBddUnivAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager correctedns)
-    where correctedns = map (+(-1)) ns
+  forallSet ns (ToDd b) = ToDd $ Cudd.Cudd.cuddBddUnivAbstract manager b ( Cudd.Cudd.cuddIndicesToCube manager ns)
+    --where correctedns = map (+(-1)) ns
   conSet [] = top
   conSet (b:bs) = foldl con b bs
   disSet [] = bot
@@ -161,7 +163,7 @@ instance DdF Z where
   negf0 z = ifthenelse z topZ botZ
   con (ToDd z1) (ToDd z2) = ToDd (Cudd.Cudd.cuddZddIntersect manager z1 z2)
   dis (ToDd z1) (ToDd z2) = ToDd (Cudd.Cudd.cuddZddUnion manager z1 z2)
-  xor z1 z2 =  a `con` b where
+  xor z1 z2 =  a `dis` b where
     a = differenceZ z1 z2 
     b = differenceZ z2 z1
   equ a b = con (imp a b) (imp b a)

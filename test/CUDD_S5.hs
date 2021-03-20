@@ -14,17 +14,17 @@ import Debug.Trace (trace)
 
 main :: IO ()
 main = do 
-  initZddVars [1..5]
+  initZddVars [1..4]
   hspec $ do
     describe "hardcoded myScn" $ do
       prop "evalVia on different DD types" $ alleq . comparisonDdTest --How are the forms given on here?
-      --prop "conversion to different DD types" $ alleq . conversionDdTest
+      prop "conversion to different DD types" $ alleq . conversionDdTest
 
 
 
 
 myKnS :: Cudd.KnowStruct
-myKnS = Cudd.KnS myDefaultProps (boolBddOf Top) myDefaultObservables `debug` "init bdd"
+myKnS = Cudd.KnS myDefaultProps (boolBddOf Top) myDefaultObservables 
 
 myKnSZ :: Cudd.KnowStruct
 myKnSZ = Cudd.KnSZ myDefaultProps (boolZddOf myDefaultProps Top) myDefaultObservables
@@ -39,18 +39,18 @@ myKnSZf0s0 :: Cudd.KnowStruct
 myKnSZf0s0 = Cudd.KnSZf0 myDefaultProps (boolZddf0s0Of myDefaultProps Top) myDefaultObservables
 
 myDefaultState :: [Prp]
-myDefaultState = [P 1 .. P 5] 
+myDefaultState = [P 0 .. P 4] 
 
 myDefaultProps :: [Prp]
-myDefaultProps = [P 1 .. P 5]
+myDefaultProps = [P 0 .. P 4]
 
 myDefaultObservables :: [(Agent,[Prp])]
-myDefaultObservables = [("1", [P 1 .. P 5]), ("2", [P 1, P 2]), ("3", [])]
+myDefaultObservables = [("1", [P 1 .. P 4]), ("2", [P 1, P 2]), ("3", []), ("4", [P 1]), ("5", [])]
 
 comparisonDdTest :: SimplifiedForm -> [Bool]
 comparisonDdTest (SF f) = 
-  [ Cudd.evalViaBdd (myKnS, myDefaultState) f 
-    , Cudd.evalViaDd (myKnSZ, myDefaultState) f 
+  [ Cudd.evalViaBdd (myKnS, myDefaultState) f `debug` ("bdd: " ++ show (Cudd.evalViaBdd (myKnS, myDefaultState) f) ++ ", for: " ++ show f)
+    , Cudd.evalViaDd (myKnSZ, myDefaultState) f `debug` ("zdd: " ++ show (Cudd.evalViaDd (myKnSZ, myDefaultState) f) ++ ", for: " ++ show f)
     --, Cudd.evalViaDd (myKnSZs0, myDefaultState) f
     --, Cudd.evalViaDd (myKnSZf0, myDefaultState) f
     --, Cudd.evalViaDd (myKnSZf0s0, myDefaultState) f
@@ -59,10 +59,10 @@ comparisonDdTest (SF f) =
 conversionDdTest :: SimplifiedForm -> [Bool]
 conversionDdTest (SF f) = 
   [ Cudd.evalViaDd (myKnS, myDefaultState) f
-    , Cudd.evalViaDd (Cudd.convertToZdd myKnS, myDefaultState) f
-    , Cudd.evalViaDd (Cudd.convertToZdds0 myKnS, myDefaultState) f
-    , Cudd.evalViaDd (Cudd.convertToZddf0 myKnS, myDefaultState) f
-    , Cudd.evalViaDd (Cudd.convertToZddf0s0 myKnS, myDefaultState) f
+    , Cudd.evalViaDd (Cudd.convertToZdd myKnSZ, myDefaultState) f
+    , Cudd.evalViaDd (Cudd.convertToZdds0 myKnSZs0, myDefaultState) f
+    , Cudd.evalViaDd (Cudd.convertToZddf0 myKnSZf0, myDefaultState) f
+    , Cudd.evalViaDd (Cudd.convertToZddf0s0 myKnSZf0s0, myDefaultState) f
   ]
 
 --debug :: c -> String -> c

@@ -17,7 +17,7 @@ instance Enum Prp where
   fromEnum (P n) = n
 
 defaultVocabulary :: [Prp]
-defaultVocabulary = map P [1..5]
+defaultVocabulary = map P [0..4]
 
 instance Arbitrary Prp where
   arbitrary = elements defaultVocabulary
@@ -84,6 +84,9 @@ data Form
 
 box :: DynamicOp -> Form -> Form
 box op f = Neg (Dia op (Neg f))
+
+ite :: Form -> Form -> Form -> Form	
+ite f g h = Conj [f `Impl` g, Neg f `Impl` h]
 
 data DynamicOp = Dyn String Dynamic
 
